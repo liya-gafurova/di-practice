@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class BaseEntity:
+class Entity:
     id: uuid.UUID
 
     @classmethod

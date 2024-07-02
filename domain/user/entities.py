@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from shared.entities import BaseEntity
+from shared.entities import Entity
 
 
 @dataclass
-class User(BaseEntity):
+class User(Entity):
     name: str
     email: str | None
