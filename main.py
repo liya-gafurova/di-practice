@@ -1,8 +1,8 @@
 import asyncio
 
-from dependencies import Container
-from user.queries import GetUserDTO, get_user_by_id
-from user.commands import CreateUserDTO, create_user
+from core.dependencies import Container
+from domain.user.commands import create_user, CreateUserDTO
+from domain.user.queries import GetUserDTO, get_user_by_id
 
 
 async def async_main():
@@ -10,9 +10,8 @@ async def async_main():
     container.wire(modules=[__name__])
 
     new_user = await create_user(CreateUserDTO(name='NAME of user'))
-    usr = await get_user_by_id(GetUserDTO(id=new_user.id))
-
-    print(usr.id)
+    user = await get_user_by_id(GetUserDTO(id=new_user.id))
+    assert user.id == new_user.id
 
 
 def main():

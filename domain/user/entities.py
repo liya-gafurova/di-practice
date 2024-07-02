@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from domain import BaseEntity
+from shared.entities import BaseEntity
 
 
 @dataclass

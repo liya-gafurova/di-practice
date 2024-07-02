@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 from dependency_injector.wiring import inject, Provide
 
-from dependencies import Container
-from user.entities import User
-from infrastructure import UserStorage
+from core.dependencies import Container
+from domain.user.entities import User
+from domain.user.repositories import UserRepository
 
 
 @dataclass
@@ -17,7 +17,7 @@ class CreateUserDTO:
 @inject
 async def create_user(
         command: CreateUserDTO,
-        storage: UserStorage = Provide[Container.storage]
+        storage: UserRepository = Provide[Container.user_storage]
 ):
     # check user_dto
 
@@ -39,7 +39,7 @@ class UpdateUserDTO:
 @inject
 async def update_user(
         command: UpdateUserDTO,
-        storage: UserStorage = Provide[Container.storage]
+        storage: UserRepository = Provide[Container.user_storage]
 ):
     user = await storage.get_by_id(command.id)
     if command.name:

@@ -9,5 +9,3 @@ class BaseEntity:
     @classmethod
     def next_id(cls):
         return uuid.uuid4()
-
-

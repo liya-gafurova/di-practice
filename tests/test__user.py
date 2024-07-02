@@ -2,10 +2,10 @@ import pytest
 import pytest_asyncio
 from dependency_injector.wiring import inject, Provide
 
-from dependencies import Container
-from user.entities import User
-from user.commands import CreateUserDTO, create_user, update_user, UpdateUserDTO
-from user.queries import get_user_by_id, GetUserDTO, get_all_users, GetUsersDTO
+from core.dependencies import Container
+from domain.user.entities import User
+from domain.user.commands import create_user, CreateUserDTO, update_user, UpdateUserDTO
+from domain.user.queries import get_user_by_id, GetUserDTO, get_all_users, GetUsersDTO
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def container():
 
 @pytest_asyncio.fixture
 @inject
-async def user(container, storage=Provide[Container.storage]):
+async def user(container, storage=Provide[Container.user_storage]):
     user = User(id=User.next_id(), name='user name', email='example@test.com')
     await storage.add(user)
 
@@ -26,7 +26,7 @@ async def user(container, storage=Provide[Container.storage]):
 
 @pytest_asyncio.fixture
 @inject
-async def users(container, storage=Provide[Container.storage]):
+async def users(container, storage=Provide[Container.user_storage]):
     users = [
         User(id=User.next_id(), name='user name', email='example@test.com'),
         User(id=User.next_id(), name='user2 name', email='example2@test.com'),
