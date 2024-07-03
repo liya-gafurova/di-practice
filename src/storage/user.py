@@ -1,7 +1,8 @@
 from domain.user.entities import User
-from shared.data_mapper import DataMapper, MapperModel, MapperEntity
-from shared.repositories import InMemoryRepository, SqlAlchemyRepository
+
 from domain.user.repositories import UserRepository
+from shared.data_mapper import DataMapper
+from shared.repositories import InMemoryRepository, SqlAlchemyRepository
 from storage.models import UserModel
 
 

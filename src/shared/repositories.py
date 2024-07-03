@@ -1,12 +1,13 @@
 from abc import ABC
-from typing import Generic
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from shared.data_mapper import DataMapper
 from shared.database import Base
 from shared.entities import Entity
-from shared.exceptions import EntityNotFoundException
+from shared.exceptions import EntityNotFoundException, EntityAlreadyCreatedException
 
 
 class Repository(ABC):
@@ -58,35 +59,57 @@ class SqlAlchemyRepository(Repository):
     mapper_class: type[DataMapper[Entity, Base]]
     model_class: type[Base]
 
-    def __init__(self, db_session):
+    def __init__(self):
+        self._session: None | AsyncSession = None
+
+    @property
+    def session(self):
+        return self._session
+
+    @session.setter
+    def session(self, db_session):
+        if not isinstance(db_session, AsyncSession):
+            raise ValueError('db_session is not correct')
         self._session = db_session
 
     async def add(self, entity):
         instance = self.map_entity_to_model(entity)
-        self._session.add(instance)
+        try:
+            async with self._session:
+                self._session.add(instance)
+                await self._session.commit()
+        except IntegrityError as err:
+            raise EntityAlreadyCreatedException()
 
     async def get_by_id(self, entity_id):
-        instance = await self._session.get(self.get_model_class(), entity_id)
+        async with self._session:
+            instance = await self._session.get(self.get_model_class(), entity_id)
+
         if instance is None:
             raise EntityNotFoundException(entity_id=entity_id)
         return self._get_entity(instance)
 
+
     async def get_all(self):
         stmt = select(self.get_model_class()).order_by(self.get_model_class().created_at.desc())
-        instances = (await self._session.scalars(stmt)).all()
+        async with self._session:
+            instances = (await self._session.scalars(stmt)).all()
 
         return [self._get_entity(instance) for instance in instances]
 
     async def update(self, id, entity):
         instance = self.map_entity_to_model(entity)
-        merged = await self._session.merge(instance)
-        self._session.add(merged)
+        async with self._session:
+            merged = await self._session.merge(instance)
+            self._session.add(merged)
+            await self._session.commit()
 
     async def remove(self, id):
-        instance = await self._session.get(self.get_model_class(), id)
-        if instance is None:
-            raise EntityNotFoundException( entity_id=id)
-        await self._session.delete(instance)
+        async with self._session:
+            instance = await self._session.get(self.get_model_class(), id)
+            if instance is None:
+                raise EntityNotFoundException(entity_id=id)
+            await self._session.delete(instance)
 
     def map_entity_to_model(self, entity: Entity):
         assert self.mapper_class, (

@@ -15,12 +15,14 @@ class GetUserDTO:
 @inject
 async def get_user_by_id(
         query: GetUserDTO,
-        storage: UserRepository = Provide[Container.user_storage]
+        db_session=Provide[Container.db_session],
+        repo=Provide[Container.user_repo]
 ):
     # check user_dto
+    repo.session = db_session()
 
     # crate user
-    user = await storage.get_by_id(query.id)
+    user = await repo.get_by_id(query.id)
 
     return user
 
@@ -33,9 +35,10 @@ class GetUsersDTO:
 @inject
 async def get_all_users(
         query: GetUsersDTO,
-        storage: UserRepository = Provide[Container.user_storage]
+        repo: UserRepository = Provide[Container.user_repo],
+        session_maker=Provide[Container.db_session]
 ):
-
-    users = await storage.get_all()
+    repo.session = session_maker()
+    users = await repo.get_all()
 
     return users

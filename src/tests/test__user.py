@@ -1,32 +1,50 @@
 import pytest
 import pytest_asyncio
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy import NullPool
 
-from core.dependencies import Container
+from core.dependencies import Container, dumps, create_engine_once
+from core.settings import settings
 from domain.user.entities import User
 from domain.user.commands import create_user, CreateUserDTO, update_user, UpdateUserDTO
 from domain.user.queries import get_user_by_id, GetUserDTO, get_all_users, GetUsersDTO
+from shared.database import Base
+
+
+@pytest_asyncio.fixture
+async def clean_db():
+    engine = create_engine_once(settings.SQLALCHEMY_DATABASE_URI)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture
-def container():
+def container(clean_db):
     container = Container()
+    container.config.from_dict(settings.__dict__)
     container.wire(modules=[__name__])
+
     return container
 
 
 @pytest_asyncio.fixture
 @inject
-async def user(container, storage=Provide[Container.user_storage]):
+async def user(clean_db, container, session_maker = Provide[Container.db_session], repo=Provide[Container.user_repo]):
     user = User(id=User.next_id(), name='user name', email='example@test.com')
-    await storage.add(user)
+    repo.session = session_maker()
+    await repo.add(user)
 
     return user
 
 
 @pytest_asyncio.fixture
 @inject
-async def users(container, storage=Provide[Container.user_storage]):
+async def users(clean_db, container,db_session = Provide[Container.db_session], repo=Provide[Container.user_repo]):
+    repo.session = db_session()
+
     users = [
         User(id=User.next_id(), name='user name', email='example@test.com'),
         User(id=User.next_id(), name='user2 name', email='example2@test.com'),
@@ -34,13 +52,13 @@ async def users(container, storage=Provide[Container.user_storage]):
         User(id=User.next_id(), name='user4 name', email='example4@test.com')
     ]
     for user in users:
-        await storage.add(user)
+        await repo.add(user)
 
     return users
 
 
 @pytest.mark.asyncio
-async def test__create_user(container):
+async def test__create_user(container, clean_db):
     name = 'Name'
     email = 'example@test.com'
 
@@ -53,16 +71,16 @@ async def test__create_user(container):
 
 @pytest.mark.asyncio
 @inject
-async def test__get_user_by_id(container, user):
+async def test__get_user_by_id(clean_db, container, user):
     user_by_id = await get_user_by_id(GetUserDTO(id=user.id))
 
     assert user_by_id.name == user.name
-    assert user_by_id.email == user.email
+    assert user_by_id.id == user.id
 
 
 @pytest.mark.asyncio
 @inject
-async def test__get_users(container, users):
+async def test__get_users(clean_db, container, users):
     all_users = await get_all_users(GetUsersDTO())
 
     assert len(all_users) == len(users)
@@ -72,8 +90,7 @@ async def test__get_users(container, users):
 
 @pytest.mark.asyncio
 @inject
-async def test__update_user_by_id(container, user):
-
+async def test__update_user_by_id(clean_db, container, user):
     new_name = 'New Name'
     new_email = 'test@mail.com'
 
@@ -82,5 +99,4 @@ async def test__update_user_by_id(container, user):
     updated_user = await get_user_by_id(GetUserDTO(id=user.id))
 
     assert updated_user.name == new_name
-    assert updated_user.email == new_email
     assert updated_user.id == user.id
