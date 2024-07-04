@@ -53,6 +53,6 @@ async def update_user(
     if command.email:
         user.email = command.email
 
-    await repo.update(command.id, user)
+    await repo.update(user)
 
     return user

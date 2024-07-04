@@ -21,7 +21,7 @@ class Repository(ABC):
     async def get_all(self):
         raise NotImplementedError
 
-    async def update(self, id, entity):
+    async def update(self, entity):
         raise NotImplementedError
 
     async def remove(self, id):
@@ -41,7 +41,7 @@ class InMemoryRepository(Repository):
     async def get_all(self):
         return list(self.entities.values())
 
-    async def update(self, id, entity):
+    async def update(self, entity):
         if entity.id != id:
             raise Exception('Entity id cannot be updated.')
         if self.entities.get(id) is None:
@@ -97,7 +97,7 @@ class SqlAlchemyRepository(Repository):
 
         return [self._get_entity(instance) for instance in instances]
 
-    async def update(self, id, entity):
+    async def update(self, entity):
         instance = self.map_entity_to_model(entity)
         async with self._session:
             merged = await self._session.merge(instance)
