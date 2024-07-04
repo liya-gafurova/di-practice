@@ -89,7 +89,6 @@ class SqlAlchemyRepository(Repository):
             raise EntityNotFoundException(entity_id=entity_id)
         return self._get_entity(instance)
 
-
     async def get_all(self):
         stmt = select(self.get_model_class()).order_by(self.get_model_class().created_at.desc())
         async with self._session:
@@ -104,12 +103,13 @@ class SqlAlchemyRepository(Repository):
             self._session.add(merged)
             await self._session.commit()
 
-    async def remove(self, id):
+    async def remove(self, entity):
         async with self._session:
-            instance = await self._session.get(self.get_model_class(), id)
+            instance = await self._session.get(self.get_model_class(), entity.id)
             if instance is None:
-                raise EntityNotFoundException(entity_id=id)
+                raise EntityNotFoundException(entity_id=entity.id)
             await self._session.delete(instance)
+            await self._session.commit()
 
     def map_entity_to_model(self, entity: Entity):
         assert self.mapper_class, (

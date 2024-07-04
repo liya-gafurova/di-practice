@@ -67,7 +67,31 @@ async def update_account(
     if command.name:
         account.name = command.name
 
-        account_repo.update(account)
+        await account_repo.update(account)
 
     return account
 
+
+@dataclass
+class DeleteAccountDTO:
+    user_id: uuid.UUID
+    account_id: uuid.UUID
+
+
+@inject
+async def delete_account(
+        command: DeleteAccountDTO,
+        account_repo=Provide[Container.account_repo],
+        session_maker=Provide[Container.db_session]
+):
+    account_repo.session = session_maker()
+
+    account = await account_repo.get_by_id(command.account_id)
+
+    if command.user_id != account.owner_id:
+        print('User tries to delete account, which does no owned by user.')
+        raise EntityNotFoundException(command.account_id)
+
+    await account_repo.remove(account)
+
+    return account

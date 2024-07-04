@@ -9,7 +9,6 @@ from domain.user.entities import User
 from domain.user.repositories import UserRepository
 
 
-
 @dataclass
 class CreateUserDTO:
     name: str
@@ -56,3 +55,4 @@ async def update_user(
     await repo.update(user)
 
     return user
+
