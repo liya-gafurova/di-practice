@@ -9,6 +9,8 @@ AccountNumber: TypeVar = TypeVar('AccountNumber', bound=str)
 ACCOUNT_NUMBER_LENGTH = 16
 
 
+# TODO add balance to account
+
 @dataclass
 class Account(Entity):
     name: None | str
