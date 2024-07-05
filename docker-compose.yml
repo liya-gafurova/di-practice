@@ -1,0 +1,28 @@
+version: '3.9'
+
+services:
+
+  db:
+    image: postgres:16
+    container_name: di_practice_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: password
+    volumes:
+      - ../tmp/db/data:/var/lib/postgresql/data
+    ports:
+      - 5436:5432
+    networks:
+      - di_practice_network
+    healthcheck:
+      test: pg_isready -U postgres -h localhost
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  # docker network create di_practice_network --attachable
+  di_practice_network:
+    driver: bridge
+    external: true
+

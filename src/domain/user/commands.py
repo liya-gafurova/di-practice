@@ -1,11 +1,12 @@
 import uuid
 from dataclasses import dataclass
+from typing import Callable
 
 from dependency_injector.wiring import inject, Provide
 
-from dependencies import Container
-from user.entities import User
-from infrastructure import UserStorage
+from core.dependencies import Container
+from domain.user.entities import User
+from domain.user.repositories import UserRepository
 
 
 @dataclass
@@ -17,14 +18,16 @@ class CreateUserDTO:
 @inject
 async def create_user(
         command: CreateUserDTO,
-        storage: UserStorage = Provide[Container.storage]
+        session_maker: Callable = Provide[Container.db_session],
+        user_repo: UserRepository = Provide[Container.user_repo]
 ):
-    # check user_dto
+    # same session in this command
+    user_repo.session = session_maker()
 
     # crate user
     user = User(id=User.next_id(), name=command.name, email=command.email)
 
-    await storage.add(user)
+    await user_repo.add(user)
 
     return user
 
@@ -39,14 +42,17 @@ class UpdateUserDTO:
 @inject
 async def update_user(
         command: UpdateUserDTO,
-        storage: UserStorage = Provide[Container.storage]
+        repo: UserRepository = Provide[Container.user_repo],
+        session_maker=Provide[Container.db_session]
 ):
-    user = await storage.get_by_id(command.id)
+    repo.session = session_maker()
+    user = await repo.get_by_id(command.id)
     if command.name:
         user.name = command.name
     if command.email:
         user.email = command.email
 
-    await storage.update(command.id, user)
+    await repo.update(user)
 
     return user
+
