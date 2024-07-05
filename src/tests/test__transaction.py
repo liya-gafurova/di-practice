@@ -153,13 +153,41 @@ async def user_accounts_transactions(
     return user, accounts, transactions
 
 
+@pytest_asyncio.fixture
+async def another_user_transactions(
+        clean_db,
+        container,
+        another_user_accounts
+):
+    another_user, accounts = another_user_accounts
+    transactions = []
+    for i in range(10):
+        idxs = random.sample(list(range(0, len(accounts))), k=2)
+        credit_account = accounts[idxs[0]]
+        debit_account = accounts[idxs[1]]
+
+        amount = random.uniform(100, 1000)
+
+        tx = await create_transaction(
+            CreateTransactionDTO(
+                user_id=another_user.id,
+                credit_account_id=credit_account.id,
+                debit_account_id=debit_account.id,
+                amount=amount
+            )
+        )
+        transactions.append(tx)
+
+    return another_user, accounts, transactions
+
+
 @pytest.mark.asyncio
 async def test__get_user_transactions(
         clean_db,
         container,
-        user_accounts_transactions
+        user_accounts_transactions,
+        another_user_transactions
 ):
-    # TODO add another user txs
     user, accounts, transactions = user_accounts_transactions
     db_transactions = await get_user_transactions(
         GetUserTransactionsDTO(

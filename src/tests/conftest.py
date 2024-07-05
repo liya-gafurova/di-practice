@@ -130,3 +130,24 @@ async def another_user_account(clean_db, container, another_user):
     await account_repo.add(account)
 
     return another_user, account
+
+
+@pytest_asyncio.fixture
+async def another_user_accounts(clean_db, container, another_user):
+    session_maker = container.db_session()
+    account_repo = container.account_repo()
+    account_repo.session = session_maker()
+
+    accounts = []
+    for i in range(5):
+        account = Account(
+            id=Account.next_id(),
+            name=f'fixture_account_{i}',
+            number=Account.generate_number(),
+            owner_id=another_user.id
+        )
+
+        await account_repo.add(account)
+        accounts.append(account)
+
+    return another_user, accounts
