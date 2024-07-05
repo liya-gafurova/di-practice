@@ -10,6 +10,7 @@ from domain.transaction.queries import get_user_transactions, GetUserTransaction
 from shared.exceptions import EntityNotFoundException, IncorrectData
 
 
+@pytest.mark.skip('Duplicate of test "test__create_transaction__transfer_tx"')
 @pytest.mark.asyncio
 async def test__create_transaction(
         clean_db,
@@ -125,6 +126,132 @@ async def test__create_transaction__another_user_account__credit(
         )
 
 
+@pytest.mark.asyncio
+async def test__create_transaction__credit_acc_is_null(
+        clean_db,
+        container,
+        user_account
+):
+    """
+    Income transaction
+
+    :param clean_db:
+    :param container:
+    :param user_account:
+    :return:
+    """
+    user, account = user_account
+    amount = random.uniform(10, 1000)
+
+    tx = await create_transaction(
+        CreateTransactionDTO(
+            user_id=user.id,
+            credit_account_id=None,
+            debit_account_id=account.id,
+            amount=amount
+        )
+    )
+
+    assert tx.amount == Decimal(amount).quantize(Decimal('.01'))
+    assert tx.debit_account == account.id
+    assert tx.credit_account is None
+
+
+@pytest.mark.asyncio
+async def test__create_transaction__debit_acc_is_null(
+        clean_db,
+        container,
+        user_account
+):
+    """
+    Outcome transaction
+
+    :param clean_db:
+    :param container:
+    :param user_account:
+    :return:
+    """
+    user, account = user_account
+    amount = random.uniform(10, 1000)
+
+    tx = await create_transaction(
+        CreateTransactionDTO(
+            user_id=user.id,
+            credit_account_id=account.id,
+            debit_account_id=None,
+            amount=amount
+        )
+    )
+
+    assert tx.amount == Decimal(amount).quantize(Decimal('.01'))
+    assert tx.credit_account == account.id
+    assert tx.debit_account is None
+
+
+@pytest.mark.asyncio
+async def test__create_transaction__transfer_tx(
+        clean_db,
+        container,
+        user_accounts
+):
+    """
+    Transfer between user accounts transaction
+
+    :param clean_db:
+    :param container:
+    :param user_account:
+    :return:
+    """
+    user, accounts = user_accounts
+    debit_account = accounts[0]
+    credit_account = accounts[1]
+    amount = random.uniform(10, 1000)
+
+    tx = await create_transaction(
+        CreateTransactionDTO(
+            user_id=user.id,
+            credit_account_id=credit_account.id,
+            debit_account_id=debit_account.id,
+            amount=amount
+        )
+    )
+
+    assert tx.amount == Decimal(amount).quantize(Decimal('.01'))
+    assert tx.credit_account == credit_account.id
+    assert tx.debit_account == debit_account.id
+
+
+@pytest.mark.asyncio
+async def test__create_transaction__both_accounts_is_null(
+        clean_db,
+        container,
+        user_account
+):
+    """
+    Negative case
+
+    :param clean_db:
+    :param container:
+    :param user_account:
+    :return:
+    """
+    user, account = user_account
+    amount = random.uniform(10, 1000)
+
+    with pytest.raises(IncorrectData):
+        tx = await create_transaction(
+            CreateTransactionDTO(
+                user_id=user.id,
+                credit_account_id=None,
+                debit_account_id=None,
+                amount=amount
+            )
+        )
+
+
+#############################################################
+# Get Transactions
+
 @pytest_asyncio.fixture
 async def user_accounts_transactions(
         clean_db, container,
@@ -200,4 +327,3 @@ async def test__get_user_transactions(
 
     assert len(transactions) == len(db_transactions)
     assert sorted_transactions == sorted_db_transactions
-

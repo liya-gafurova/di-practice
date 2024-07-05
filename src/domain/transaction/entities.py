@@ -9,8 +9,8 @@ from shared.entities import Entity
 @dataclass
 class Transaction(Entity):
     user_id: uuid.UUID
-    credit_account: Any  # from
-    debit_account: Any  # to
+    credit_account: uuid.UUID | None  # from
+    debit_account: uuid.UUID | None   # to
     amount: float
     _amount: Decimal = field(init=False, repr=False)
 
