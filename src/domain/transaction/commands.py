@@ -6,7 +6,7 @@ from dependency_injector.wiring import inject, Provide
 
 from core.dependencies import Container
 from domain.transaction.entities import Transaction
-from shared.exceptions import EntityNotFoundException
+from shared.exceptions import EntityNotFoundException, IncorrectData
 
 
 @dataclass
@@ -27,6 +27,9 @@ async def create_transaction(
     session = session_maker()
     account_repo.session = session
     tx_repo.session = session
+
+    if command.debit_account_id == command.credit_account_id:
+        raise IncorrectData('Credit and Debit accounts cannot be the same.')
 
     credit_account = await account_repo.get_by_id(command.credit_account_id)
     debit_account = await account_repo.get_by_id(command.debit_account_id)

@@ -1,8 +1,12 @@
+import uuid
+
+from sqlalchemy import select, and_, or_
+
 from domain.transaction.entities import Transaction
 from domain.transaction.repositories import TransactionRepository
-from shared.data_mapper import DataMapper, MapperModel, MapperEntity
+from shared.data_mapper import DataMapper
 from shared.repositories import SqlAlchemyRepository
-from storage.models import TransactionModel
+from storage.models import TransactionModel, AccountModel
 
 
 class TransactionDataMapper(DataMapper):
@@ -28,3 +32,26 @@ class TransactionDataMapper(DataMapper):
 class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepository):
     model_class = TransactionModel
     mapper_class = TransactionDataMapper
+
+    async def get_user_transactions(self, user_id: uuid.UUID) -> list[Transaction]:
+        user_accounts__subquery = select(
+            AccountModel.id
+        ).where(
+            and_(
+                AccountModel.owner_id == user_id,
+                AccountModel.deleted_at.is_(None)
+            )
+        )
+
+        stmt = select(TransactionModel).where(
+            or_(
+                TransactionModel.debit_account.in_(user_accounts__subquery),
+                TransactionModel.credit_account.in_(user_accounts__subquery),
+            )
+        )
+
+        async with self._session:
+            instances = (await self._session.scalars(stmt)).all()
+
+        return [self._get_entity(instance) for instance in instances]
+

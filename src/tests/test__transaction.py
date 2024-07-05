@@ -1,10 +1,13 @@
+import random
 import uuid
 from decimal import Decimal
 
 import pytest
+import pytest_asyncio
 
 from domain.transaction.commands import create_transaction, CreateTransactionDTO
-from shared.exceptions import EntityNotFoundException
+from domain.transaction.queries import get_user_transactions, GetUserTransactionsDTO
+from shared.exceptions import EntityNotFoundException, IncorrectData
 
 
 @pytest.mark.asyncio
@@ -30,6 +33,26 @@ async def test__create_transaction(
     assert tx.amount == Decimal(amount).quantize(Decimal('.01'))
     assert tx.debit_account == debit_account.id
     assert tx.credit_account == credit_account.id
+
+
+@pytest.mark.asyncio
+async def test__create_transaction__same_credit_debit_account(
+        clean_db,
+        container,
+        user_account
+):
+    user, account = user_account
+    amount = 156.459
+
+    with pytest.raises(IncorrectData):
+        tx = await create_transaction(
+            CreateTransactionDTO(
+                user_id=user.id,
+                credit_account_id=account.id,
+                debit_account_id=account.id,
+                amount=amount
+            )
+        )
 
 
 @pytest.mark.asyncio
@@ -100,3 +123,53 @@ async def test__create_transaction__another_user_account__credit(
                 amount=amount
             )
         )
+
+
+@pytest_asyncio.fixture
+async def user_accounts_transactions(
+        clean_db, container,
+        user_accounts
+):
+    user, accounts = user_accounts
+
+    transactions = []
+    for i in range(10):
+        idxs = random.sample(list(range(0, len(accounts))), k=2)
+        credit_account = accounts[idxs[0]]
+        debit_account = accounts[idxs[1]]
+
+        amount = random.uniform(100, 1000)
+
+        tx = await create_transaction(
+            CreateTransactionDTO(
+                user_id=user.id,
+                credit_account_id=credit_account.id,
+                debit_account_id=debit_account.id,
+                amount=amount
+            )
+        )
+        transactions.append(tx)
+
+    return user, accounts, transactions
+
+
+@pytest.mark.asyncio
+async def test__get_user_transactions(
+        clean_db,
+        container,
+        user_accounts_transactions
+):
+    # TODO add another user txs
+    user, accounts, transactions = user_accounts_transactions
+    db_transactions = await get_user_transactions(
+        GetUserTransactionsDTO(
+            user_id=user.id
+        )
+    )
+
+    sorted_transactions = sorted(transactions, key=lambda tx: tx.id)
+    sorted_db_transactions = sorted(db_transactions, key=lambda tx: tx.id)
+
+    assert len(transactions) == len(db_transactions)
+    assert sorted_transactions == sorted_db_transactions
+
