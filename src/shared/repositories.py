@@ -2,7 +2,7 @@ from abc import ABC
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.data_mapper import DataMapper
 from shared.database import Base

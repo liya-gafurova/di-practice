@@ -127,6 +127,29 @@ async def test__get_account_by_id__no_account_found(clean_db, container, user):
 
 
 @pytest.mark.asyncio
+async def test__get_all_user_accounts(clean_db, container, user_accounts):
+
+    current_user, accounts = user_accounts
+    accounts_sorted = sorted(accounts, key=lambda acc: acc.number)
+
+    db_accounts = await get_all_user_accounts(GetAllUserAccountsDTO(current_user.id))
+    db_accounts_sorted = sorted(db_accounts, key=lambda acc: acc.number)
+
+    assert len(db_accounts_sorted) == len(accounts_sorted)
+    assert db_accounts_sorted[0].number == accounts_sorted[0].number
+    assert db_accounts_sorted[-1].number == accounts_sorted[-1].number
+
+
+@pytest.mark.asyncio
+async def test__get_all_user_accounts__no_accounts(clean_db, container, user):
+
+    db_accounts = await get_all_user_accounts(GetAllUserAccountsDTO(user.id))
+    db_accounts_sorted = sorted(db_accounts, key=lambda acc: acc.number)
+
+    assert len(db_accounts_sorted) == 0
+
+
+@pytest.mark.asyncio
 async def test__update_account(clean_db, container, user_account):
     user, account = user_account
     new_name = 'New Name'
@@ -212,19 +235,3 @@ async def test__account_delete__account_not_exists(
 ):
     with pytest.raises(EntityNotFoundException):
         await delete_account(DeleteAccountDTO(user.id, uuid.uuid4()))
-
-
-@pytest.mark.asyncio
-async def test__get_all_user_accounts(clean_db, container, user, user_accounts):
-
-    # TODO test freezes
-
-    user, accounts = user_accounts
-    accounts_sorted = sorted(accounts, key=lambda acc: acc.number)
-
-    db_accounts = await get_all_user_accounts(GetAllUserAccountsDTO(user.id))
-    db_accounts_sorted = sorted(db_accounts, key=lambda acc: acc.number)
-
-    assert len(db_accounts_sorted) == len(accounts_sorted)
-    assert db_accounts_sorted[0].number == accounts_sorted[0].number
-    assert db_accounts_sorted[-1].number == accounts_sorted[-1].number

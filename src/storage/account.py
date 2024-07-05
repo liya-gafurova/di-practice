@@ -34,6 +34,7 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
     async def get_all__user(self, user_id: uuid.UUID):
         stmt = select(AccountModel).where(AccountModel.owner_id == user_id)
 
-        instances = (await self._session.scalars(stmt)).all()
+        async with self._session:
+            instances = (await self._session.scalars(stmt)).all()
 
         return [self._get_entity(instance) for instance in instances]
