@@ -1,11 +1,13 @@
+import random
 import uuid
+from decimal import Decimal
 
 import pytest
 
 from domain.account.commands import create_account, CreateAccountDTO, update_account, UpdateAccountDTO, \
     DeleteAccountDTO, delete_account
 from domain.account.queries import get_account_by_id, GetAccountByIdDTO, get_all_user_accounts, GetAllUserAccountsDTO
-from shared.exceptions import EntityNotFoundException
+from shared.exceptions import EntityNotFoundException, IncorrectData
 from tests.conftest import user_accounts, user_account, another_user_account
 
 
@@ -17,7 +19,7 @@ async def test__create_account__no_user(clean_db, container):
 
 
 @pytest.mark.asyncio
-async def test__create_account(clean_db, container, user):
+async def test__create_account__without_balance(clean_db, container, user):
     user_id = user.id
     account_name = None
     account = await create_account(CreateAccountDTO(user_id=user_id, name=account_name))
@@ -26,6 +28,40 @@ async def test__create_account(clean_db, container, user):
     assert account.id is not None
     assert account.number is not None
     assert account.name == account_name
+    assert account.balance == Decimal(0.00)
+
+
+@pytest.mark.asyncio
+async def test__create_account__with_balance(clean_db, container, user):
+    user_id = user.id
+    account_name = None
+    balance = random.uniform(10, 1000)
+    account = await create_account(
+        CreateAccountDTO(
+            user_id=user_id, name=account_name, balance=balance
+        )
+    )
+
+    assert account.owner_id == user.id
+    assert account.id is not None
+    assert account.number is not None
+    assert account.name == account_name
+    assert account.balance == Decimal(balance).quantize(Decimal('0.01'))
+
+
+@pytest.mark.asyncio
+async def test__create_account__with_balance__below_zero(clean_db, container, user):
+    user_id = user.id
+    account_name = None
+    balance = random.uniform(10, 1000)
+
+    with pytest.raises(IncorrectData):
+        account = await create_account(
+            CreateAccountDTO(
+                user_id=user_id, name=account_name, balance=-balance
+            )
+        )
+
 
 
 @pytest.mark.asyncio
@@ -38,6 +74,7 @@ async def test__get_account_by_id(clean_db, container, user_account):
     assert account.number == db_account.number
     assert account.name == db_account.name
     assert account.owner_id == db_account.owner_id
+    assert account.balance == db_account.balance
 
 
 @pytest.mark.asyncio
@@ -78,13 +115,14 @@ async def test__get_all_user_accounts__no_accounts(clean_db, container, user):
 
 
 @pytest.mark.asyncio
-async def test__update_account(clean_db, container, user_account):
+async def test__update_account__name(clean_db, container, user_account):
     user, account = user_account
     new_name = 'New Name'
     updated_account = await update_account(UpdateAccountDTO(
         user_id=user.id,
         account_id=account.id,
-        name=new_name
+        name=new_name,
+        balance=None
     ))
 
     assert updated_account.id == account.id
@@ -102,7 +140,8 @@ async def test__update_account__not_user_account(clean_db, container, another_us
         await update_account(UpdateAccountDTO(
             user_id=user.id,
             account_id=account.id,
-            name=new_name
+            name=new_name,
+            balance=None
         ))
 
 
@@ -112,7 +151,8 @@ async def test__update_account__no_account_found(clean_db, container, user):
         await update_account(UpdateAccountDTO(
             user_id=user.id,
             account_id=uuid.uuid4(),
-            name='some name of not found account'
+            name='some name of not found account',
+            balance=None
         ))
 
 
@@ -122,7 +162,8 @@ async def test__update_account__no_update_field(clean_db, container, user_accoun
     updated_account = await update_account(UpdateAccountDTO(
         user_id=user.id,
         account_id=account.id,
-        name=None
+        name=None,
+        balance=None
     ))
 
     assert updated_account.id == account.id

@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
 
 from dependency_injector.wiring import inject, Provide
 
@@ -7,13 +8,16 @@ from core.dependencies import Container
 from domain.account.entities import Account
 from domain.account.repositories import AccountRepository
 from domain.user.repositories import UserRepository
-from shared.exceptions import EntityNotFoundException
+from shared.exceptions import EntityNotFoundException, IncorrectData
+
+INCORRECT_BALANCE__MSG = 'Account Balance cannot be less than 0.00'
 
 
 @dataclass
 class CreateAccountDTO:
     name: None | str
     user_id: uuid.UUID
+    balance: Decimal | float = Decimal(0.00)
 
 
 @inject
@@ -31,11 +35,15 @@ async def create_account(
     user = await user_repo.get_by_id(command.user_id)
 
     # create account
+    if command.balance < Decimal(0.00):
+        raise IncorrectData(INCORRECT_BALANCE__MSG)
+
     new_account = Account(
         id=Account.next_id(),
         owner_id=user.id,
         name=command.name,
-        number=Account.generate_number()
+        number=Account.generate_number(),
+        balance=command.balance
     )
 
     await account_repo.add(new_account)
@@ -48,6 +56,7 @@ class UpdateAccountDTO:
     user_id: uuid.UUID
     account_id: uuid.UUID
     name: None | str
+    balance: None | Decimal
 
 
 @inject
@@ -66,6 +75,15 @@ async def update_account(
 
     if command.name:
         account.name = command.name
+    if command.balance:
+        if command.balance < Decimal(0.00):
+            raise IncorrectData(INCORRECT_BALANCE__MSG)
+
+        # TODO
+        # create correction tx
+        # recalculate balance
+        # update balance
+        # account.balance = command.balance
 
         await account_repo.update(account)
 

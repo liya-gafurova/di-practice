@@ -15,7 +15,8 @@ class AccountDataMapper(DataMapper):
             id=instance.id,
             name=instance.name,
             owner_id=instance.owner_id,
-            number=instance.number
+            number=instance.number,
+            balance=instance.balance
         )
 
     def entity_to_model(self, entity: Account) -> AccountModel:
@@ -23,7 +24,8 @@ class AccountDataMapper(DataMapper):
             id=entity.id,
             name=entity.name,
             owner_id=entity.owner_id,
-            number=entity.number
+            number=entity.number,
+            balance=entity.balance
         )
 
 

@@ -16,6 +16,7 @@ class AccountModel(Base):
     name: Mapped[str] = mapped_column(String(128), unique=False, index=True, nullable=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
     number: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    balance: Mapped[Decimal] = mapped_column(Numeric(14,2), nullable=False, default=0)
 
 
 class TransactionModel(Base):
