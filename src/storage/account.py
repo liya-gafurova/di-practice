@@ -1,12 +1,15 @@
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
+from sqlalchemy.exc import IntegrityError
 
 from domain.account.entities import Account
 from domain.account.repositories import AccountRepository
 from shared.data_mapper import DataMapper, MapperModel, MapperEntity
+from shared.exceptions import EntityAlreadyCreatedException, EntityNotFoundException
 from shared.repositories import SqlAlchemyRepository
-from storage.models import AccountModel
+from storage.models import AccountModel, TransactionModel, AccountBalanceModel
 
 
 class AccountDataMapper(DataMapper):
@@ -24,8 +27,7 @@ class AccountDataMapper(DataMapper):
             id=entity.id,
             name=entity.name,
             owner_id=entity.owner_id,
-            number=entity.number,
-            balance=entity.balance
+            number=entity.number
         )
 
 
@@ -33,10 +35,117 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
     model_class = AccountModel
     mapper_class = AccountDataMapper
 
+    def accounts__stmt(self):
+        stmt = select(
+            AccountModel,
+            AccountBalanceModel.balance
+        ).join(
+            AccountBalanceModel,
+            AccountBalanceModel.account_id == AccountModel.id
+        )
+
+        return stmt
+
+    async def add(self, account: Account):
+        instance = self.map_entity_to_model(account)
+        try:
+            async with self._session:
+                self._session.add(instance)
+                await self._session.flush([instance])
+
+                self._session.add(AccountBalanceModel(account_id=instance.id, balance=account.balance))
+
+                await self._session.commit()
+
+        except IntegrityError as err:
+            raise EntityAlreadyCreatedException()
+
+    async def get_by_id(self, entity_id):
+        async with self._session:
+            instance = (await self._session.execute(
+                self.accounts__stmt().where(AccountModel.id == entity_id).limit(1)
+            )).first()
+
+        if instance is None:
+            raise EntityNotFoundException(entity_id=entity_id)
+        return self.convert_to_account(instance[0], instance[1])
+
+    async def remove(self, entity):
+        async with self._session:
+            instance = await self._session.get(AccountModel, entity.id)
+            balance = (await self._session.scalars(select(AccountBalanceModel).where(AccountBalanceModel.account_id == entity.id).limit(1))).first()
+
+            if instance is None:
+                raise EntityNotFoundException(entity_id=entity.id)
+
+            await self._session.delete(balance)
+            await self._session.delete(instance)
+            await self._session.commit()
+
     async def get_all__user(self, user_id: uuid.UUID):
-        stmt = select(AccountModel).where(AccountModel.owner_id == user_id)
+        stmt = select(AccountModel, AccountBalanceModel.balance).join(
+            AccountBalanceModel, AccountBalanceModel.account_id == AccountModel.id
+        ).where(AccountModel.owner_id == user_id)
 
         async with self._session:
-            instances = (await self._session.scalars(stmt)).all()
+            instances = (await self._session.execute(stmt)).all()
 
-        return [self._get_entity(instance) for instance in instances]
+        return [self.convert_to_account(account, balance) for account, balance in instances]
+
+    async def calculate_balance(self, account_id: uuid.UUID):
+
+        income__subquery = select(
+            TransactionModel.debit_account,
+            func.coalesce(func.sum(TransactionModel.amount), 0).label('income')
+        ).select_from(TransactionModel).where(
+            TransactionModel.debit_account == account_id
+        ).join(
+            AccountBalanceModel,
+            AccountBalanceModel.account_id == TransactionModel.debit_account
+        ).where(
+            and_(
+                TransactionModel.created_at > AccountBalanceModel.updated_at,
+                TransactionModel.deleted_at.is_(None)
+            )
+        ).subquery()
+
+        outcome__subquery = select(
+            TransactionModel.credit_account,
+            func.coalesce(func.sum(TransactionModel.amount), 0).label('outcome')
+        ).select_from(TransactionModel).where(
+            TransactionModel.credit_account == account_id
+        ).join(
+            AccountBalanceModel,
+            AccountBalanceModel.account_id == TransactionModel.credit_account
+        ).where(
+            and_(
+                TransactionModel.created_at > AccountBalanceModel.updated_at,
+                TransactionModel.deleted_at.is_(None)
+            )
+        ).subquery()
+
+        stmt = select(
+            (income__subquery.c.income - outcome__subquery.c.outcome).label('balance')
+        ).join(
+            income__subquery, income__subquery.c.debit_account == AccountModel.id
+        ).join(
+            outcome__subquery, outcome__subquery.c.credit_account == AccountModel.id
+        ).where(AccountModel.id == account_id)
+
+        async with self._session:
+            balance = await self._session.scalar(stmt)
+
+        return balance
+
+    def convert_to_account(
+            self,
+            account: AccountModel,
+            balance: Decimal
+    ):
+        return Account(
+            id=account.id,
+            number=account.number,
+            name=account.name,
+            owner_id=account.owner_id,
+            balance=balance
+        )

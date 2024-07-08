@@ -1,6 +1,7 @@
+from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import String, ForeignKey, Numeric
+from sqlalchemy import String, ForeignKey, Numeric, DateTime
 from sqlalchemy.orm import mapped_column, Mapped
 
 from shared.database import Base
@@ -16,7 +17,14 @@ class AccountModel(Base):
     name: Mapped[str] = mapped_column(String(128), unique=False, index=True, nullable=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
     number: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
-    balance: Mapped[Decimal] = mapped_column(Numeric(14,2), nullable=False, default=0)
+
+
+class AccountBalanceModel(Base):
+    __tablename__ = 'account_balance'
+
+    account_id: Mapped[str] = mapped_column(ForeignKey('account.id'), unique=True)
+    balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow())
 
 
 class TransactionModel(Base):
@@ -24,4 +32,4 @@ class TransactionModel(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
     credit_account: Mapped[str] = mapped_column(ForeignKey('account.id'), nullable=True)
     debit_account: Mapped[str] = mapped_column(ForeignKey('account.id'), nullable=True)
-    amount: Mapped[Decimal] = mapped_column(Numeric(14,2), nullable=False, default=0)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
