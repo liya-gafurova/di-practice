@@ -152,7 +152,7 @@ async def update_account_balance(
     balance_delta = await account_repo.calculate_balance(account.id)
 
     # if balance changes since last calculation
-    if balance_delta > Decimal(0.00):
+    if balance_delta != Decimal(0.00):
         account.balance = account.balance + balance_delta
 
         await account_repo.update_balance(account)
@@ -169,7 +169,9 @@ class AddTransactionDTO(CreateTransactionDTO):
 async def add_transaction_for_user(
         command: AddTransactionDTO
 ):
-    await create_transaction(
+    assert isinstance(command, AddTransactionDTO)
+
+    tx = await create_transaction(
         CreateTransactionDTO(
             command.user_id,
             command.credit_account_id,
@@ -187,6 +189,8 @@ async def add_transaction_for_user(
         await update_account_balance(
             UpdateAccountBalanceDTO(command.debit_account_id)
         )
+
+    return tx
 
 
 @dataclass
