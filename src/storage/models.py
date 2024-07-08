@@ -24,7 +24,7 @@ class AccountBalanceModel(Base):
 
     account_id: Mapped[str] = mapped_column(ForeignKey('account.id'), unique=True)
     balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class TransactionModel(Base):
@@ -33,3 +33,4 @@ class TransactionModel(Base):
     credit_account: Mapped[str] = mapped_column(ForeignKey('account.id'), nullable=True)
     debit_account: Mapped[str] = mapped_column(ForeignKey('account.id'), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    type: Mapped[str] = mapped_column(String(128), nullable=True, index=True, unique=False)

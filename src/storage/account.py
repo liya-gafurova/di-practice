@@ -70,6 +70,22 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
             raise EntityNotFoundException(entity_id=entity_id)
         return self.convert_to_account(instance[0], instance[1])
 
+    async def update_balance(self, account: Account):
+        async with self._session:
+            account_balance = (
+                await self._session.scalars(
+                    select(AccountBalanceModel).where(AccountBalanceModel.account_id == account.id)
+                )
+            ).first()
+
+            if not account_balance:
+                raise EntityNotFoundException(account.id)
+
+            account_balance.balance = account.balance
+            await self._session.merge(account_balance)
+            await self._session.commit()
+
+
     async def remove(self, entity):
         async with self._session:
             instance = await self._session.get(AccountModel, entity.id)
@@ -107,6 +123,8 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
                 TransactionModel.created_at > AccountBalanceModel.updated_at,
                 TransactionModel.deleted_at.is_(None)
             )
+        ).group_by(
+            TransactionModel.debit_account
         ).subquery()
 
         outcome__subquery = select(
@@ -122,14 +140,18 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
                 TransactionModel.created_at > AccountBalanceModel.updated_at,
                 TransactionModel.deleted_at.is_(None)
             )
+        ).group_by(
+            TransactionModel.credit_account
         ).subquery()
 
         stmt = select(
-            (income__subquery.c.income - outcome__subquery.c.outcome).label('balance')
+            (func.coalesce(income__subquery.c.income, 0) - func.coalesce(outcome__subquery.c.outcome, 0)).label('balance')
+        ).select_from(
+            AccountModel
         ).join(
-            income__subquery, income__subquery.c.debit_account == AccountModel.id
+            income__subquery, income__subquery.c.debit_account == AccountModel.id, isouter=True
         ).join(
-            outcome__subquery, outcome__subquery.c.credit_account == AccountModel.id
+            outcome__subquery, outcome__subquery.c.credit_account == AccountModel.id, isouter=True
         ).where(AccountModel.id == account_id)
 
         async with self._session:

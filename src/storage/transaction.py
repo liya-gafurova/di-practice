@@ -16,7 +16,8 @@ class TransactionDataMapper(DataMapper):
             credit_account=instance.credit_account,
             debit_account=instance.debit_account,
             user_id=instance.user_id,
-            amount=instance.amount
+            amount=instance.amount,
+            type=instance.type
         )
 
     def entity_to_model(self, entity: Transaction) -> TransactionModel:
@@ -25,7 +26,8 @@ class TransactionDataMapper(DataMapper):
             credit_account=entity.credit_account,
             debit_account=entity.debit_account,
             user_id=entity.user_id,
-            amount=entity.amount
+            amount=entity.amount,
+            type=entity.type
         )
 
 

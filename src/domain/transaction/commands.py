@@ -5,7 +5,7 @@ from decimal import Decimal
 from dependency_injector.wiring import inject, Provide
 
 from core.dependencies import Container
-from domain.transaction.entities import Transaction
+from domain.transaction.entities import Transaction, TransactionType
 from shared.exceptions import EntityNotFoundException, IncorrectData
 
 
@@ -15,6 +15,7 @@ class CreateTransactionDTO:
     credit_account_id: uuid.UUID | None
     debit_account_id: uuid.UUID | None
     amount: int | float | Decimal
+    type: None | TransactionType = None
 
 
 @inject
@@ -46,12 +47,21 @@ async def create_transaction(
         print('User tries to create transaction with account, which does no owned by user.')
         raise EntityNotFoundException(account_id)
 
+    if not command.type:
+        if credit_account and debit_account:
+            command.type = TransactionType.TRANSFER
+        elif debit_account:
+            command.type = TransactionType.INCOME
+        else:
+            command.type = TransactionType.OUTCOME
+
     tx = Transaction(
         id=Transaction.next_id(),
         credit_account=credit_account.id if credit_account else None,
         debit_account=debit_account.id if debit_account else None,
         amount=command.amount,
-        user_id=command.user_id
+        user_id=command.user_id,
+        type=command.type
     )
 
     await tx_repo.add(tx)

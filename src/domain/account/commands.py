@@ -8,6 +8,7 @@ from core.dependencies import Container
 from domain.account.entities import Account
 from domain.account.repositories import AccountRepository
 from domain.transaction.commands import CreateTransactionDTO, create_transaction
+from domain.transaction.entities import TransactionType
 from domain.user.repositories import UserRepository
 from shared.exceptions import EntityNotFoundException, IncorrectData
 
@@ -35,19 +36,33 @@ async def create_account(
     # check user exists
     user = await user_repo.get_by_id(command.user_id)
 
+    command.balance = Decimal(command.balance).quantize(Decimal('0.01')) if not isinstance(command.balance, Decimal) else command.balance
+
     # create account
     if command.balance < Decimal(0.00):
         raise IncorrectData(INCORRECT_BALANCE__MSG)
 
+    init_balance = Decimal(0.00)
     new_account = Account(
         id=Account.next_id(),
         owner_id=user.id,
         name=command.name,
         number=Account.generate_number(),
-        balance=command.balance
+        balance=init_balance
     )
 
     await account_repo.add(new_account)
+
+    if command.balance > init_balance:
+        await add_correction_transaction_for_user(
+            command=AddCorrectionTransactionDTO(
+                user_id=command.user_id,
+                account_id=new_account.id,
+                new_balance=command.balance,
+                current_balance=init_balance
+            )
+        )
+        new_account.balance = command.balance
 
     return new_account
 
@@ -82,22 +97,12 @@ async def update_account(
         if command.balance < Decimal(0.00):
             raise IncorrectData(INCORRECT_BALANCE__MSG)
 
-        balance_delta = command.balance - account.balance
-
-        debit_account, credit_account = None, None
-        if balance_delta < Decimal(0.00):
-            # balances decreases
-            credit_account = account.id
-        else:
-            # balance increases
-            debit_account = account.id
-
-        await add_transaction_for_user(
-            AddTransactionDTO(
+        await add_correction_transaction_for_user(
+            command=AddCorrectionTransactionDTO(
                 user_id=command.user_id,
-                amount=abs(balance_delta),
-                credit_account_id=credit_account,
-                debit_account_id=debit_account
+                account_id=command.account_id,
+                new_balance=command.balance,
+                current_balance=account.balance
             )
         )
 
@@ -150,7 +155,7 @@ async def update_account_balance(
     if balance_delta > Decimal(0.00):
         account.balance = account.balance + balance_delta
 
-        await account_repo.update(account)
+        await account_repo.update_balance(account)
 
     return account
 
@@ -182,3 +187,42 @@ async def add_transaction_for_user(
         await update_account_balance(
             UpdateAccountBalanceDTO(command.debit_account_id)
         )
+
+
+@dataclass
+class AddCorrectionTransactionDTO:
+    user_id: uuid.UUID
+    account_id: uuid.UUID
+    current_balance: Decimal
+    new_balance: Decimal
+
+
+@inject
+async def add_correction_transaction_for_user(
+        command: AddCorrectionTransactionDTO
+):
+    assert isinstance(command, AddCorrectionTransactionDTO)
+
+    balance_delta = command.new_balance - command.current_balance
+
+    debit_account, credit_account = None, None
+    if balance_delta < Decimal(0.00):
+        # balances decreases
+        credit_account = command.account_id
+    else:
+        # balance increases
+        debit_account = command.account_id
+
+    await create_transaction(
+        CreateTransactionDTO(
+            command.user_id,
+            credit_account_id=credit_account,
+            debit_account_id=debit_account,
+            amount=abs(balance_delta),
+            type=TransactionType.CORRECTION
+        )
+    )
+
+    await update_account_balance(
+        UpdateAccountBalanceDTO(command.account_id)
+    )
