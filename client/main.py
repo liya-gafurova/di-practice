@@ -2,6 +2,7 @@ import asyncio
 import uuid
 
 import streamlit as st
+from dependency_injector import providers
 from pydash import find
 
 from client.models import AccountReadModel, TransactionReadModel
@@ -13,14 +14,28 @@ from src.domain.account.entities import Account
 from src.domain.account.queries import GetAllUserAccountsDTO, get_all_user_accounts, get_account_by_number, \
     GetAccountByNumberDTO
 from src.domain.user.queries import get_user_by_id, GetUserDTO
+from tests.conftest import create_engine_for_tests
 
 st.title('Personal Finance')
 
 DB_USER_ID = '3ddf2e94-1eba-4079-8719-dc9fafa7edde'
 
+container = Container()
+container.engine.override(providers.Singleton(create_engine_for_tests, db_url=container.config.SQLALCHEMY_DATABASE_URI))
+container.config.from_dict(settings.__dict__)
+container.wire(modules=[
+    __name__,
+    'domain.user.commands',
+    'domain.user.queries',
+    'domain.account.commands',
+    'domain.account.queries',
+    'domain.transaction.commands',
+    'domain.transaction.queries'
+])
 
-async def get_accounts_data():
-    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(DB_USER_ID)))
+
+async def get_accounts_data(user):
+
     data: list[Account] = await get_all_user_accounts(GetAllUserAccountsDTO(user.id))
 
     display_data = [AccountReadModel(
@@ -32,7 +47,7 @@ async def get_accounts_data():
     return display_data
 
 
-async def get_transactions_data():
+async def get_transactions_data(user):
     user = await get_user_by_id(GetUserDTO(id=uuid.UUID(DB_USER_ID)))
     txs = await get_user_transactions(GetUserTransactionsDTO(user.id))
     user_accounts = await get_all_user_accounts(GetAllUserAccountsDTO(user.id))
@@ -52,18 +67,8 @@ async def get_transactions_data():
     return display_data
 
 
-async def table__user_accounts(st):
-    display_data = await get_accounts_data()
-
-    st.table(data=display_data)
-
-
-async def txs__user_transactions(st):
-    display_data = await get_transactions_data()
-    st.table(data=display_data)
-
-
-async def add__user_account(st):
+async def accounts_page(st):
+    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(DB_USER_ID)))
     with st.form('Add account'):
         account_name = st.text_input('Account Name')
         account_balance = st.number_input('Account Balance')
@@ -77,9 +82,9 @@ async def add__user_account(st):
                     balance=account_balance
                 )
             )
+    accounts_data = await get_accounts_data(user)
+    st.table(data=accounts_data)
 
-
-async def add__account_transaction(st):
     with st.form('Add Transaction'):
         from_number = st.text_input('From Account', value=None)
         to_number = st.text_input('To Account', value=None)
@@ -107,27 +112,10 @@ async def add__account_transaction(st):
                 )
             )
 
-
-async def accounts_page(st):
-    results = await asyncio.gather(
-        add__user_account(st),
-        table__user_accounts(st),
-        add__account_transaction(st),
-        txs__user_transactions(st)
-    )
+    txs_data = await get_transactions_data(user)
+    st.table(data=txs_data)
 
 
 if __name__ == '__main__':
-    container = Container()
-    container.config.from_dict(settings.__dict__)
-    container.wire(modules=[
-        __name__,
-        'domain.user.commands',
-        'domain.user.queries',
-        'domain.account.commands',
-        'domain.account.queries',
-        'domain.transaction.commands',
-        'domain.transaction.queries'
-    ])
 
     asyncio.run(accounts_page(st))
