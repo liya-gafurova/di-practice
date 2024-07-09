@@ -6,7 +6,8 @@ import pytest
 import pytest_asyncio
 
 from domain.transaction.commands import create_transaction, CreateTransactionDTO
-from domain.transaction.queries import get_user_transactions, GetUserTransactionsDTO
+from domain.transaction.queries import get_user_transactions, GetUserTransactionsDTO, get_account_transactions, \
+    GetAccountTransactionsDTO
 from shared.exceptions import EntityNotFoundException, IncorrectData
 
 
@@ -327,3 +328,59 @@ async def test__get_user_transactions(
 
     assert len(transactions) == len(db_transactions)
     assert sorted_transactions == sorted_db_transactions
+
+
+@pytest.mark.asyncio
+async def test__get_user_transactions(
+        clean_db,
+        container,
+        user_accounts_transactions,
+        another_user_transactions
+):
+    """
+    Test getting account transactions
+
+    :param clean_db:
+    :param container:
+    :param user_accounts_transactions:
+    :param another_user_transactions:
+    :return:
+    """
+    user, accounts, transactions = user_accounts_transactions
+    account = accounts[0]
+    account_txs_filter = lambda tx: tx.debit_account == account.id or tx.credit_account == account.id
+    account_transactions = list(filter(account_txs_filter, transactions))
+    sorted_account_txs = sorted(account_transactions, key=lambda tx: tx.id)
+
+    db_account_txs = await get_account_transactions(GetAccountTransactionsDTO(user.id, account.id))
+    sorted_db_account_txs = sorted(db_account_txs, key=lambda tx: tx.id)
+
+    assert sorted_account_txs == sorted_db_account_txs
+
+
+@pytest.mark.asyncio
+async def test__get_user_transactions__another_user(
+        clean_db,
+        container,
+        user_accounts_transactions,
+        another_user_transactions
+):
+    """
+    Test getting account transactions
+    account of another user
+
+    :param clean_db:
+    :param container:
+    :param user_accounts_transactions:
+    :param another_user_transactions:
+    :return:
+    """
+    another_user, _, _ = another_user_transactions
+    user, accounts, transactions = user_accounts_transactions
+    account = accounts[0]
+
+    with pytest.raises(EntityNotFoundException):
+        await get_account_transactions(GetAccountTransactionsDTO(another_user.id, account.id))
+
+
+

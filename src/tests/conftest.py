@@ -92,6 +92,9 @@ async def user_account(clean_db, container, user):
     account_repo = container.account_repo()
     account_repo.session = session_maker()
 
+    # TODO: not completely correct to create account via repo.
+    # if balance > 0, account is created with balance = 0.0, then correction tx is created to fix "income"
+
     account = Account(
         id=Account.next_id(),
         name='fixture_account',

@@ -8,3 +8,6 @@ class TransactionRepository(Repository):
 
     async def get_user_transactions(self, user_id: uuid.UUID) -> list[Transaction]:
         raise NotImplementedError
+
+    async def get_account_transactions(self, account_id: uuid.UUID) -> list[Transaction]:
+        raise NotImplementedError

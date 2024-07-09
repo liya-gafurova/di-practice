@@ -57,3 +57,17 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
 
         return [self._get_entity(instance) for instance in instances]
 
+    async def get_account_transactions(self, account_id: uuid.UUID) -> list[Transaction]:
+        # TODO filter out Correction Transactions
+        stmt = select(TransactionModel).where(
+            or_(
+                TransactionModel.debit_account == account_id,
+                TransactionModel.credit_account == account_id,
+            )
+        )
+
+        async with self._session:
+            instances = (await self._session.scalars(stmt)).all()
+
+        return [self._get_entity(instance) for instance in instances]
+

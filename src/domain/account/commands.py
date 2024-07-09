@@ -17,8 +17,8 @@ INCORRECT_BALANCE__MSG = 'Account Balance cannot be less than 0.00'
 
 @dataclass
 class CreateAccountDTO:
-    name: None | str
     user_id: uuid.UUID
+    name: None | str
     balance: Decimal | float = Decimal(0.00)
 
 
@@ -217,7 +217,7 @@ async def add_correction_transaction_for_user(
         # balance increases
         debit_account = command.account_id
 
-    await create_transaction(
+    tx = await create_transaction(
         CreateTransactionDTO(
             command.user_id,
             credit_account_id=credit_account,
@@ -230,3 +230,5 @@ async def add_correction_transaction_for_user(
     await update_account_balance(
         UpdateAccountBalanceDTO(command.account_id)
     )
+
+    return tx
