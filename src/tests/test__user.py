@@ -43,9 +43,15 @@ async def test__get_user_by_id(clean_db, container, user):
 async def test__get_users(clean_db, container, users):
     all_users = await get_all_users(GetUsersDTO())
 
-    assert len(all_users) == len(users)
-    assert all_users[0].id == users[0].id
-    assert all_users[-1].id == users[-1].id
+    sorted_users = sorted(users, key=lambda user: user.id)
+    sorted_all_users = sorted(all_users, key=lambda user: user.id)
+
+    assert len(sorted_all_users) == len(sorted_users)
+
+    for user, db_user in zip(sorted_users, sorted_all_users):
+        assert user.id == db_user.id
+        assert user.name == db_user.name
+
 
 
 @pytest.mark.asyncio

@@ -16,7 +16,8 @@ class TransactionDataMapper(DataMapper):
             credit_account=instance.credit_account,
             debit_account=instance.debit_account,
             user_id=instance.user_id,
-            amount=instance.amount
+            amount=instance.amount,
+            type=instance.type
         )
 
     def entity_to_model(self, entity: Transaction) -> TransactionModel:
@@ -25,7 +26,8 @@ class TransactionDataMapper(DataMapper):
             credit_account=entity.credit_account,
             debit_account=entity.debit_account,
             user_id=entity.user_id,
-            amount=entity.amount
+            amount=entity.amount,
+            type=entity.type
         )
 
 
@@ -47,6 +49,20 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
             or_(
                 TransactionModel.debit_account.in_(user_accounts__subquery),
                 TransactionModel.credit_account.in_(user_accounts__subquery),
+            )
+        )
+
+        async with self._session:
+            instances = (await self._session.scalars(stmt)).all()
+
+        return [self._get_entity(instance) for instance in instances]
+
+    async def get_account_transactions(self, account_id: uuid.UUID) -> list[Transaction]:
+        # TODO filter out Correction Transactions
+        stmt = select(TransactionModel).where(
+            or_(
+                TransactionModel.debit_account == account_id,
+                TransactionModel.credit_account == account_id,
             )
         )
 

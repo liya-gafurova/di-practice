@@ -1,3 +1,5 @@
+import random
+
 import pytest
 import pytest_asyncio
 from dependency_injector import providers
@@ -74,7 +76,8 @@ async def user_accounts(clean_db, container, user):
             id=Account.next_id(),
             name=f'fixture_account_{i}',
             number=Account.generate_number(),
-            owner_id=user.id
+            owner_id=user.id,
+            balance=random.uniform(10, 100)
         )
 
         await account_repo.add(account)
@@ -89,11 +92,15 @@ async def user_account(clean_db, container, user):
     account_repo = container.account_repo()
     account_repo.session = session_maker()
 
+    # TODO: not completely correct to create account via repo.
+    # if balance > 0, account is created with balance = 0.0, then correction tx is created to fix "income"
+
     account = Account(
         id=Account.next_id(),
         name='fixture_account',
         number=Account.generate_number(),
-        owner_id=user.id
+        owner_id=user.id,
+        balance=random.uniform(10, 100)
     )
 
     await account_repo.add(account)
@@ -124,7 +131,8 @@ async def another_user_account(clean_db, container, another_user):
         id=Account.next_id(),
         name='fixture_account__another',
         number=Account.generate_number(),
-        owner_id=another_user.id
+        owner_id=another_user.id,
+        balance=random.uniform(10, 100)
     )
 
     await account_repo.add(account)
@@ -144,7 +152,8 @@ async def another_user_accounts(clean_db, container, another_user):
             id=Account.next_id(),
             name=f'fixture_account_{i}',
             number=Account.generate_number(),
-            owner_id=another_user.id
+            owner_id=another_user.id,
+            balance=random.uniform(10, 100)
         )
 
         await account_repo.add(account)

@@ -25,4 +25,4 @@ class Base(DeclarativeBase, SoftDeleteMixin):
         }
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
