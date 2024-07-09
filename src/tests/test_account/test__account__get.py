@@ -2,7 +2,8 @@ import uuid
 
 import pytest
 
-from domain.account.queries import get_account_by_id, GetAccountByIdDTO, get_all_user_accounts, GetAllUserAccountsDTO
+from domain.account.queries import get_account_by_id, GetAccountByIdDTO, get_all_user_accounts, GetAllUserAccountsDTO, \
+    get_account_by_number, GetAccountByNumberDTO
 from shared.exceptions import EntityNotFoundException
 
 
@@ -31,6 +32,37 @@ async def test__get_account_by_id__another_user_account(clean_db, container, ano
 async def test__get_account_by_id__no_account_found(clean_db, container, user):
     with pytest.raises(EntityNotFoundException):
         await get_account_by_id(GetAccountByIdDTO(user.id, uuid.uuid4()))
+
+
+@pytest.mark.asyncio
+async def test__get_account_by_number__no_account_found(clean_db, container, user):
+    with pytest.raises(EntityNotFoundException):
+        await get_account_by_number(GetAccountByNumberDTO(
+            user_id=user.id,
+            account_number='some_number'
+        ))
+
+
+@pytest.mark.asyncio
+async def test__get_account_by_number__another_user_account(clean_db, container, user, another_user_account):
+    _, another_account = another_user_account
+    with pytest.raises(EntityNotFoundException):
+        await get_account_by_number(GetAccountByNumberDTO(
+            user_id=user.id,
+            account_number=another_account.number
+        ))
+
+
+@pytest.mark.asyncio
+async def test__get_account_by_number(clean_db, container, user_account):
+    user, account = user_account
+
+    db_account = await get_account_by_number(GetAccountByNumberDTO(
+            user_id=user.id,
+            account_number=account.number
+        ))
+
+    assert db_account == account
 
 
 @pytest.mark.asyncio

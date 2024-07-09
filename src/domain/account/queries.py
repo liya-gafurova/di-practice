@@ -43,7 +43,6 @@ async def get_account_by_number(
         session_maker=Provide[Container.db_session],
         account_repo: AccountRepository = Provide[Container.account_repo]
 ):
-    # TODO: add tests
     account_repo.session = session_maker()
 
     account = await account_repo.get_by_number(query.account_number)
