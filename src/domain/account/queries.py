@@ -32,6 +32,30 @@ async def get_account_by_id(
 
 
 @dataclass
+class GetAccountByNumberDTO:
+    user_id: uuid.UUID
+    account_number: str
+
+
+@inject
+async def get_account_by_number(
+        query: GetAccountByNumberDTO,
+        session_maker=Provide[Container.db_session],
+        account_repo: AccountRepository = Provide[Container.account_repo]
+):
+    # TODO: add tests
+    account_repo.session = session_maker()
+
+    account = await account_repo.get_by_number(query.account_number)
+
+    if account.owner_id != query.user_id:
+        print('User tries to access account, which does no owned by user.')
+        raise EntityNotFoundException(query.account_number)
+
+    return account
+
+
+@dataclass
 class GetAllUserAccountsDTO:
     user_id: uuid.UUID
 

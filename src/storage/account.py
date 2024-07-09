@@ -70,6 +70,16 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
             raise EntityNotFoundException(entity_id=entity_id)
         return self.convert_to_account(instance[0], instance[1])
 
+    async def get_by_number(self, number: str):
+        async with self._session:
+            instance = (await self._session.execute(
+                self.accounts__stmt().where(AccountModel.number == number).limit(1)
+            )).first()
+
+        if instance is None:
+            raise EntityNotFoundException(entity_id=number)
+        return self.convert_to_account(instance[0], instance[1])
+
     async def update_balance(self, account: Account):
         async with self._session:
             account_balance = (

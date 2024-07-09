@@ -50,6 +50,8 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
                 TransactionModel.debit_account.in_(user_accounts__subquery),
                 TransactionModel.credit_account.in_(user_accounts__subquery),
             )
+        ).order_by(
+            TransactionModel.created_at.desc()
         )
 
         async with self._session:
@@ -64,6 +66,8 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
                 TransactionModel.debit_account == account_id,
                 TransactionModel.credit_account == account_id,
             )
+        ).order_by(
+            TransactionModel.created_at.desc()
         )
 
         async with self._session:
