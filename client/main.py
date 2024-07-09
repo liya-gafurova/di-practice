@@ -42,7 +42,7 @@ async def get_accounts_data(user):
         number=account.number,
         name=account.name,
         balance=account.balance
-    ).dict() for account in data]
+    ).model_dump(by_alias=True) for account in data]
 
     return display_data
 
@@ -62,7 +62,7 @@ async def get_transactions_data(user):
                 amount=tx.amount,
                 credit_account=credit_acc.name if credit_acc else None,
                 type=tx.type
-            ).dict()
+            ).model_dump(by_alias=True)
         )
     return display_data
 

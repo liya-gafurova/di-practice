@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy import select, and_, or_
 
-from domain.transaction.entities import Transaction
+from domain.transaction.entities import Transaction, TransactionType
 from domain.transaction.repositories import TransactionRepository
 from shared.data_mapper import DataMapper
 from shared.repositories import SqlAlchemyRepository
@@ -50,6 +50,8 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
                 TransactionModel.debit_account.in_(user_accounts__subquery),
                 TransactionModel.credit_account.in_(user_accounts__subquery),
             )
+        ).where(
+            TransactionModel.type != TransactionType.CORRECTION.value
         ).order_by(
             TransactionModel.created_at.desc()
         )
@@ -60,12 +62,13 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
         return [self._get_entity(instance) for instance in instances]
 
     async def get_account_transactions(self, account_id: uuid.UUID) -> list[Transaction]:
-        # TODO filter out Correction Transactions
         stmt = select(TransactionModel).where(
             or_(
                 TransactionModel.debit_account == account_id,
                 TransactionModel.credit_account == account_id,
             )
+        ).where(
+            TransactionModel.type !=TransactionType.CORRECTION.value
         ).order_by(
             TransactionModel.created_at.desc()
         )
