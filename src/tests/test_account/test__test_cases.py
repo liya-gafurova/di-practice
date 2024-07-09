@@ -87,11 +87,8 @@ async def test__add_correction_transaction__create_account__with_balance(
     all_user_accounts = await get_all_user_accounts(GetAllUserAccountsDTO(user.id))
 
     assert created_account.balance == balance
-
-    assert len(created_account_txs) == 1
-    assert created_account_txs[0].amount == balance
-    assert created_account_txs[0].type == TransactionType.CORRECTION
-
+    # correction tx are filtered out
+    assert len(created_account_txs) == 0
     assert len(all_user_accounts) == len(accounts) + 1
 
 
@@ -193,4 +190,5 @@ async def test__add_correction_transaction__update_balance(
     sorted__account_txs__after = sorted(account_txs__after, key=lambda tx: tx.id)
 
     assert updated_account.balance == accounts[0].balance + balance_delta
-    assert len(sorted__account_txs__after) - 1 == len(sorted__account_txs__before)
+    # correction tx are filtered out
+    assert len(sorted__account_txs__after) == len(sorted__account_txs__before)
