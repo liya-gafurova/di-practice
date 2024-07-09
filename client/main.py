@@ -4,7 +4,6 @@ import uuid
 import streamlit as st
 from dependency_injector import providers
 from pydash import find
-from streamlit.components.v1 import components
 
 from client.models import AccountReadModel, TransactionReadModel
 from core.dependencies import Container

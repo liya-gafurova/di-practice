@@ -47,13 +47,16 @@ async def create_transaction(
         print('User tries to create transaction with account, which does no owned by user.')
         raise EntityNotFoundException(account_id)
 
+    if credit_account and credit_account.balance < command.amount:
+        raise IncorrectData(f'User tries to transfer from {command.amount} from account with balance {credit_account.balance}')
+
     if not command.type:
         if credit_account and debit_account:
             command.type = TransactionType.TRANSFER
         elif debit_account:
             command.type = TransactionType.INCOME
         else:
-            command.type = TransactionType.OUTCOME
+            command.type = TransactionType.EXPENSE
 
     tx = Transaction(
         id=Transaction.next_id(),

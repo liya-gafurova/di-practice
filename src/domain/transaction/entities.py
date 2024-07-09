@@ -10,7 +10,7 @@ class TransactionType(str, Enum):
     CORRECTION = 'correction'
     TRANSFER = 'transfer'
     INCOME = 'income'
-    OUTCOME = 'outcome'
+    EXPENSE = 'expense'
 
 
 @dataclass

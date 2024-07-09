@@ -21,7 +21,7 @@ async def test__create_transaction(
     user, accounts = user_accounts
     credit_account = accounts[0]
     debit_account = accounts[1]
-    amount = 156.459
+    amount = credit_account.balance * Decimal(0.4)
 
     tx = await create_transaction(
         CreateTransactionDTO(
@@ -44,7 +44,7 @@ async def test__create_transaction__same_credit_debit_account(
         user_account
 ):
     user, account = user_account
-    amount = 156.459
+    amount = account.balance * Decimal(0.1)
 
     with pytest.raises(IncorrectData):
         tx = await create_transaction(
@@ -66,7 +66,7 @@ async def test__create_transaction__account_not_found(
     user, accounts = user_accounts
     credit_account = accounts[0]
     debit_account = uuid.uuid4()
-    amount = 156.459
+    amount = credit_account.balance * Decimal(0.1)
 
     with pytest.raises(EntityNotFoundException):
         tx = await create_transaction(
@@ -90,7 +90,7 @@ async def test__create_transaction__another_user_account__debit(
 
     user, account = user_account
     _, another_user_account = another_user_account
-    amount = 156.459
+    amount = account.balance * Decimal(0.1)
 
     with pytest.raises(EntityNotFoundException):
         tx = await create_transaction(
@@ -114,7 +114,7 @@ async def test__create_transaction__another_user_account__credit(
 
     user, account = user_account
     _, another_user_account = another_user_account
-    amount = 156.459
+    amount = another_user_account.balance * Decimal(0.1)
 
     with pytest.raises(EntityNotFoundException):
         tx = await create_transaction(
@@ -173,7 +173,7 @@ async def test__create_transaction__debit_acc_is_null(
     :return:
     """
     user, account = user_account
-    amount = random.uniform(10, 1000)
+    amount = account.balance * Decimal(0.1)
 
     tx = await create_transaction(
         CreateTransactionDTO(
@@ -206,7 +206,7 @@ async def test__create_transaction__transfer_tx(
     user, accounts = user_accounts
     debit_account = accounts[0]
     credit_account = accounts[1]
-    amount = random.uniform(10, 1000)
+    amount = credit_account.balance * Decimal('0.1')
 
     tx = await create_transaction(
         CreateTransactionDTO(
@@ -250,6 +250,27 @@ async def test__create_transaction__both_accounts_is_null(
         )
 
 
+@pytest.mark.asyncio
+async def test__create_transaction__not_enough_money_on_credit_acc(
+        clean_db,
+        container,
+        user_accounts
+):
+    user, accounts = user_accounts
+    credit_account = accounts[0]
+    amount = credit_account.balance + Decimal(10.00)
+
+    with pytest.raises(IncorrectData):
+        tx = await create_transaction(
+            CreateTransactionDTO(
+                user_id=user.id,
+                credit_account_id=credit_account.id,
+                debit_account_id=None,
+                amount=amount
+            )
+        )
+
+
 #############################################################
 # Get Transactions
 
@@ -266,7 +287,7 @@ async def user_accounts_transactions(
         credit_account = accounts[idxs[0]]
         debit_account = accounts[idxs[1]]
 
-        amount = random.uniform(100, 1000)
+        amount = credit_account.balance * Decimal(0.1)
 
         tx = await create_transaction(
             CreateTransactionDTO(
@@ -294,7 +315,7 @@ async def another_user_transactions(
         credit_account = accounts[idxs[0]]
         debit_account = accounts[idxs[1]]
 
-        amount = random.uniform(100, 1000)
+        amount = credit_account.balance * Decimal(0.1)
 
         tx = await create_transaction(
             CreateTransactionDTO(
