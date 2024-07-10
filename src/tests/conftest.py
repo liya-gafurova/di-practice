@@ -1,4 +1,5 @@
 import random
+from decimal import Decimal
 
 import pytest
 import pytest_asyncio
@@ -7,10 +8,12 @@ from dependency_injector.wiring import inject, Provide
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine
 
-import domain
-from core.dependencies import create_engine_once, Container
+from core.dependencies import Container
 from core.settings import settings
+from domain.account.commands import create_account, CreateAccountDTO, AddTransactionDTO, add_transaction_for_user
 from domain.account.entities import Account
+from domain.account.queries import get_account_by_id, GetAccountByIdDTO
+from domain.transaction.entities import Transaction, TransactionType
 from domain.user.entities import User
 from shared.database import Base
 
@@ -27,7 +30,8 @@ def create_engine_for_tests(db_url):
 @pytest.fixture(scope='session')
 def container():
     container = Container()
-    container.engine.override(providers.Singleton(create_engine_for_tests, db_url=container.config.SQLALCHEMY_DATABASE_URI))
+    container.engine.override(
+        providers.Singleton(create_engine_for_tests, db_url=container.config.SQLALCHEMY_DATABASE_URI))
     container.config.from_dict(settings.__dict__)
     container.wire(modules=[
         __name__,
@@ -65,47 +69,29 @@ async def user(clean_db, container, db_session=Provide[Container.db_session], re
 
 
 @pytest_asyncio.fixture
-async def user_accounts(clean_db, container, user):
-    session_maker = container.db_session()
-    account_repo = container.account_repo()
-    account_repo.session = session_maker()
+async def user_account(clean_db, container, user):
+    # if balance > 0, account is created with balance = 0.0,
+    # then correction tx is created to fix "income"
 
-    accounts = []
-    for i in range(5):
-        account = Account(
-            id=Account.next_id(),
-            name=f'fixture_account_{i}',
-            number=Account.generate_number(),
-            owner_id=user.id,
-            balance=random.uniform(10, 100)
-        )
+    balance = Decimal(random.uniform(10, 100))
+    account = await create_account(CreateAccountDTO(
+        user.id,
+        'fixture_account',
+        balance=balance
+    ))
 
-        await account_repo.add(account)
-        accounts.append(account)
-
-    return user, accounts
+    return user, account
 
 
 @pytest_asyncio.fixture
-async def user_account(clean_db, container, user):
-    session_maker = container.db_session()
-    account_repo = container.account_repo()
-    account_repo.session = session_maker()
+async def user_accounts(clean_db, container, user):
+    accounts = []
+    for i in range(5):
+        balance = random.uniform(10, 100)
+        account = await create_account(CreateAccountDTO(user.id, f'fixture_account_{i}', balance))
+        accounts.append(account)
 
-    # TODO: not completely correct to create account via repo.
-    # if balance > 0, account is created with balance = 0.0, then correction tx is created to fix "income"
-
-    account = Account(
-        id=Account.next_id(),
-        name='fixture_account',
-        number=Account.generate_number(),
-        owner_id=user.id,
-        balance=random.uniform(10, 100)
-    )
-
-    await account_repo.add(account)
-
-    return user, account
+    return user, accounts
 
 
 @pytest_asyncio.fixture
@@ -123,40 +109,86 @@ async def another_user(clean_db, container):
 
 @pytest_asyncio.fixture
 async def another_user_account(clean_db, container, another_user):
-    session_maker = container.db_session()
-    account_repo = container.account_repo()
-    account_repo.session = session_maker()
-
-    account = Account(
-        id=Account.next_id(),
-        name='fixture_account__another',
-        number=Account.generate_number(),
-        owner_id=another_user.id,
-        balance=random.uniform(10, 100)
-    )
-
-    await account_repo.add(account)
+    balance = Decimal(random.uniform(10, 100))
+    account = await create_account(CreateAccountDTO(
+        another_user.id,
+        'fixture_account',
+        balance=balance
+    ))
 
     return another_user, account
 
 
 @pytest_asyncio.fixture
 async def another_user_accounts(clean_db, container, another_user):
-    session_maker = container.db_session()
-    account_repo = container.account_repo()
-    account_repo.session = session_maker()
-
     accounts = []
     for i in range(5):
-        account = Account(
-            id=Account.next_id(),
-            name=f'fixture_account_{i}',
-            number=Account.generate_number(),
-            owner_id=another_user.id,
-            balance=random.uniform(10, 100)
-        )
-
-        await account_repo.add(account)
+        balance = Decimal(random.uniform(10, 100))
+        account = await create_account(CreateAccountDTO(
+            another_user.id,
+            f'fixture_account_{i}',
+            balance=balance
+        ))
         accounts.append(account)
 
     return another_user, accounts
+
+
+async def add_txs_to_user_accounts(
+        user: User,
+        accounts: list[Account],
+        txs_count: int = 10
+):
+    transactions = []
+    for i in range(txs_count):
+        # get two random accounts (credit, debit). One of accounts can be none
+        possible_idxs_with_None = list(range(0, len(accounts) + 1))
+        idxs = random.sample(possible_idxs_with_None, k=2)
+        credit_and_debit_accounts = []
+        for idx in idxs:
+            try:
+                credit_and_debit_accounts.append(accounts[idx])
+            except IndexError:
+                credit_and_debit_accounts.append(None)
+
+        amount = Decimal(random.uniform(10, 100))
+        if credit_and_debit_accounts[0]:
+            credit_acc = await get_account_by_id(GetAccountByIdDTO(user.id, credit_and_debit_accounts[0].id))
+            amount = credit_acc.balance * Decimal(0.5)
+
+        tx = await add_transaction_for_user(
+            AddTransactionDTO(
+                user_id=user.id,
+                credit_account=credit_and_debit_accounts[0].number if credit_and_debit_accounts[0] else None,
+                debit_account=credit_and_debit_accounts[1].number if credit_and_debit_accounts[1] else None,
+                amount=amount
+            )
+        )
+        transactions.append(tx)
+
+    return transactions
+
+
+@pytest_asyncio.fixture
+async def user_accounts_transactions(
+        clean_db, container,
+        user_accounts
+):
+    user, accounts = user_accounts
+
+    transactions = await add_txs_to_user_accounts(user, accounts, 10)
+
+    return user, accounts, transactions
+
+
+@pytest_asyncio.fixture
+async def another_user_transactions(
+        clean_db,
+        container,
+        another_user_accounts
+):
+    another_user, accounts = another_user_accounts
+
+    transactions = await add_txs_to_user_accounts(another_user, accounts, 5)
+
+    return another_user, accounts, transactions

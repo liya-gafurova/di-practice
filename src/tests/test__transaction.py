@@ -3,12 +3,12 @@ import uuid
 from decimal import Decimal
 
 import pytest
-import pytest_asyncio
 
 from domain.transaction.commands import create_transaction, CreateTransactionDTO
 from domain.transaction.queries import get_user_transactions, GetUserTransactionsDTO, get_account_transactions, \
     GetAccountTransactionsDTO
 from shared.exceptions import EntityNotFoundException, IncorrectData
+from tests.conftest import user_accounts_transactions, another_user_transactions
 
 
 @pytest.mark.skip('Duplicate of test "test__create_transaction__transfer_tx"')
@@ -21,20 +21,20 @@ async def test__create_transaction(
     user, accounts = user_accounts
     credit_account = accounts[0]
     debit_account = accounts[1]
-    amount = 156.459
+    amount = credit_account.balance * Decimal(0.4)
 
     tx = await create_transaction(
         CreateTransactionDTO(
             user_id=user.id,
-            credit_account_id=credit_account.id,
-            debit_account_id=debit_account.id,
+            credit_account=credit_account.number,
+            debit_account=debit_account.number,
             amount=amount
         )
     )
 
     assert tx.amount == Decimal(amount).quantize(Decimal('.01'))
-    assert tx.debit_account == debit_account.id
-    assert tx.credit_account == credit_account.id
+    assert tx.debit_account == debit_account.number
+    assert tx.credit_account == credit_account.number
 
 
 @pytest.mark.asyncio
@@ -44,14 +44,14 @@ async def test__create_transaction__same_credit_debit_account(
         user_account
 ):
     user, account = user_account
-    amount = 156.459
+    amount = account.balance * Decimal(0.1)
 
     with pytest.raises(IncorrectData):
         tx = await create_transaction(
             CreateTransactionDTO(
                 user_id=user.id,
-                credit_account_id=account.id,
-                debit_account_id=account.id,
+                credit_account=account.number,
+                debit_account=account.number,
                 amount=amount
             )
         )
@@ -66,14 +66,14 @@ async def test__create_transaction__account_not_found(
     user, accounts = user_accounts
     credit_account = accounts[0]
     debit_account = uuid.uuid4()
-    amount = 156.459
+    amount = credit_account.balance * Decimal(0.1)
 
     with pytest.raises(EntityNotFoundException):
         tx = await create_transaction(
             CreateTransactionDTO(
                 user_id=user.id,
-                credit_account_id=credit_account.id,
-                debit_account_id=debit_account,
+                credit_account=credit_account.number,
+                debit_account='some number',
                 amount=amount
             )
         )
@@ -90,14 +90,14 @@ async def test__create_transaction__another_user_account__debit(
 
     user, account = user_account
     _, another_user_account = another_user_account
-    amount = 156.459
+    amount = account.balance * Decimal(0.1)
 
     with pytest.raises(EntityNotFoundException):
         tx = await create_transaction(
             CreateTransactionDTO(
                 user_id=user.id,
-                credit_account_id=account.id,
-                debit_account_id=another_user_account.id,
+                credit_account=account.number,
+                debit_account=another_user_account.number,
                 amount=amount
             )
         )
@@ -114,14 +114,14 @@ async def test__create_transaction__another_user_account__credit(
 
     user, account = user_account
     _, another_user_account = another_user_account
-    amount = 156.459
+    amount = another_user_account.balance * Decimal(0.1)
 
     with pytest.raises(EntityNotFoundException):
         tx = await create_transaction(
             CreateTransactionDTO(
                 user_id=user.id,
-                credit_account_id=another_user_account.id,
-                debit_account_id=account.id,
+                credit_account=another_user_account.number,
+                debit_account=account.number,
                 amount=amount
             )
         )
@@ -147,14 +147,14 @@ async def test__create_transaction__credit_acc_is_null(
     tx = await create_transaction(
         CreateTransactionDTO(
             user_id=user.id,
-            credit_account_id=None,
-            debit_account_id=account.id,
+            credit_account=None,
+            debit_account=account.number,
             amount=amount
         )
     )
 
     assert tx.amount == Decimal(amount).quantize(Decimal('.01'))
-    assert tx.debit_account == account.id
+    assert tx.debit_account == account.number
     assert tx.credit_account is None
 
 
@@ -173,19 +173,19 @@ async def test__create_transaction__debit_acc_is_null(
     :return:
     """
     user, account = user_account
-    amount = random.uniform(10, 1000)
+    amount = account.balance * Decimal(0.1)
 
     tx = await create_transaction(
         CreateTransactionDTO(
             user_id=user.id,
-            credit_account_id=account.id,
-            debit_account_id=None,
+            credit_account=account.number,
+            debit_account=None,
             amount=amount
         )
     )
 
     assert tx.amount == Decimal(amount).quantize(Decimal('.01'))
-    assert tx.credit_account == account.id
+    assert tx.credit_account == account.number
     assert tx.debit_account is None
 
 
@@ -206,20 +206,20 @@ async def test__create_transaction__transfer_tx(
     user, accounts = user_accounts
     debit_account = accounts[0]
     credit_account = accounts[1]
-    amount = random.uniform(10, 1000)
+    amount = credit_account.balance * Decimal('0.1')
 
     tx = await create_transaction(
         CreateTransactionDTO(
             user_id=user.id,
-            credit_account_id=credit_account.id,
-            debit_account_id=debit_account.id,
+            credit_account=credit_account.number,
+            debit_account=debit_account.number,
             amount=amount
         )
     )
 
     assert tx.amount == Decimal(amount).quantize(Decimal('.01'))
-    assert tx.credit_account == credit_account.id
-    assert tx.debit_account == debit_account.id
+    assert tx.credit_account == credit_account.number
+    assert tx.debit_account == debit_account.number
 
 
 @pytest.mark.asyncio
@@ -243,8 +243,29 @@ async def test__create_transaction__both_accounts_is_null(
         tx = await create_transaction(
             CreateTransactionDTO(
                 user_id=user.id,
-                credit_account_id=None,
-                debit_account_id=None,
+                credit_account=None,
+                debit_account=None,
+                amount=amount
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test__create_transaction__not_enough_money_on_credit_acc(
+        clean_db,
+        container,
+        user_accounts
+):
+    user, accounts = user_accounts
+    credit_account = accounts[0]
+    amount = credit_account.balance + Decimal(10.00)
+
+    with pytest.raises(IncorrectData):
+        tx = await create_transaction(
+            CreateTransactionDTO(
+                user_id=user.id,
+                credit_account=credit_account.number,
+                debit_account=None,
                 amount=amount
             )
         )
@@ -252,61 +273,6 @@ async def test__create_transaction__both_accounts_is_null(
 
 #############################################################
 # Get Transactions
-
-@pytest_asyncio.fixture
-async def user_accounts_transactions(
-        clean_db, container,
-        user_accounts
-):
-    user, accounts = user_accounts
-
-    transactions = []
-    for i in range(10):
-        idxs = random.sample(list(range(0, len(accounts))), k=2)
-        credit_account = accounts[idxs[0]]
-        debit_account = accounts[idxs[1]]
-
-        amount = random.uniform(100, 1000)
-
-        tx = await create_transaction(
-            CreateTransactionDTO(
-                user_id=user.id,
-                credit_account_id=credit_account.id,
-                debit_account_id=debit_account.id,
-                amount=amount
-            )
-        )
-        transactions.append(tx)
-
-    return user, accounts, transactions
-
-
-@pytest_asyncio.fixture
-async def another_user_transactions(
-        clean_db,
-        container,
-        another_user_accounts
-):
-    another_user, accounts = another_user_accounts
-    transactions = []
-    for i in range(10):
-        idxs = random.sample(list(range(0, len(accounts))), k=2)
-        credit_account = accounts[idxs[0]]
-        debit_account = accounts[idxs[1]]
-
-        amount = random.uniform(100, 1000)
-
-        tx = await create_transaction(
-            CreateTransactionDTO(
-                user_id=another_user.id,
-                credit_account_id=credit_account.id,
-                debit_account_id=debit_account.id,
-                amount=amount
-            )
-        )
-        transactions.append(tx)
-
-    return another_user, accounts, transactions
 
 
 @pytest.mark.asyncio
@@ -348,11 +314,11 @@ async def test__get_user_transactions(
     """
     user, accounts, transactions = user_accounts_transactions
     account = accounts[0]
-    account_txs_filter = lambda tx: tx.debit_account == account.id or tx.credit_account == account.id
+    account_txs_filter = lambda tx: tx.debit_account == account.number or tx.credit_account == account.number
     account_transactions = list(filter(account_txs_filter, transactions))
     sorted_account_txs = sorted(account_transactions, key=lambda tx: tx.id)
 
-    db_account_txs = await get_account_transactions(GetAccountTransactionsDTO(user.id, account.id))
+    db_account_txs = await get_account_transactions(GetAccountTransactionsDTO(user.id, account.number))
     sorted_db_account_txs = sorted(db_account_txs, key=lambda tx: tx.id)
 
     assert sorted_account_txs == sorted_db_account_txs
@@ -380,7 +346,7 @@ async def test__get_user_transactions__another_user(
     account = accounts[0]
 
     with pytest.raises(EntityNotFoundException):
-        await get_account_transactions(GetAccountTransactionsDTO(another_user.id, account.id))
+        await get_account_transactions(GetAccountTransactionsDTO(another_user.id, account.number))
 
 
 

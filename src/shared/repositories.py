@@ -108,7 +108,7 @@ class SqlAlchemyRepository(Repository):
             instance = await self._session.get(self.get_model_class(), entity.id)
             if instance is None:
                 raise EntityNotFoundException(entity_id=entity.id)
-            await self._session.delete(instance)
+            instance.delete()
             await self._session.commit()
 
     def map_entity_to_model(self, entity: Entity):

@@ -2,7 +2,8 @@ import uuid
 
 from sqlalchemy import select, and_, or_
 
-from domain.transaction.entities import Transaction
+from domain.account.entities import AccountNumber
+from domain.transaction.entities import Transaction, TransactionType
 from domain.transaction.repositories import TransactionRepository
 from shared.data_mapper import DataMapper
 from shared.repositories import SqlAlchemyRepository
@@ -37,33 +38,40 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
 
     async def get_user_transactions(self, user_id: uuid.UUID) -> list[Transaction]:
         user_accounts__subquery = select(
-            AccountModel.id
+            AccountModel.number
         ).where(
             and_(
                 AccountModel.owner_id == user_id,
-                AccountModel.deleted_at.is_(None)
             )
-        )
+        ).execution_options(include_deleted=True)
 
         stmt = select(TransactionModel).where(
             or_(
                 TransactionModel.debit_account.in_(user_accounts__subquery),
                 TransactionModel.credit_account.in_(user_accounts__subquery),
             )
-        )
+        ).where(
+            TransactionModel.type != TransactionType.CORRECTION.value
+        ).order_by(
+            TransactionModel.created_at.desc()
+        ).execution_options(include_deleted=True)
 
         async with self._session:
             instances = (await self._session.scalars(stmt)).all()
 
         return [self._get_entity(instance) for instance in instances]
 
-    async def get_account_transactions(self, account_id: uuid.UUID) -> list[Transaction]:
-        # TODO filter out Correction Transactions
+    async def get_account_transactions(self, account_number: AccountNumber) -> list[Transaction]:
         stmt = select(TransactionModel).where(
-            or_(
-                TransactionModel.debit_account == account_id,
-                TransactionModel.credit_account == account_id,
+            and_(
+                or_(
+                    TransactionModel.debit_account == account_number,
+                    TransactionModel.credit_account == account_number
+                ),
+                TransactionModel.type != TransactionType.CORRECTION.value
             )
+        ).order_by(
+            TransactionModel.created_at.desc()
         )
 
         async with self._session:

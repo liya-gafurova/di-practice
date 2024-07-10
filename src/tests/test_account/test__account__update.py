@@ -12,7 +12,7 @@ async def test__update_account__name(clean_db, container, user_account):
     new_name = 'New Name'
     updated_account = await update_account(UpdateAccountDTO(
         user_id=user.id,
-        account_id=account.id,
+        account_number=account.number,
         name=new_name,
         balance=None
     ))
@@ -31,7 +31,7 @@ async def test__update_account__not_user_account(clean_db, container, another_us
     with pytest.raises(EntityNotFoundException):
         await update_account(UpdateAccountDTO(
             user_id=user.id,
-            account_id=account.id,
+            account_number=account.number,
             name=new_name,
             balance=None
         ))
@@ -42,7 +42,7 @@ async def test__update_account__no_account_found(clean_db, container, user):
     with pytest.raises(EntityNotFoundException):
         await update_account(UpdateAccountDTO(
             user_id=user.id,
-            account_id=uuid.uuid4(),
+            account_number='some number',
             name='some name of not found account',
             balance=None
         ))
@@ -53,7 +53,7 @@ async def test__update_account__no_update_field(clean_db, container, user_accoun
     user, account = user_account
     updated_account = await update_account(UpdateAccountDTO(
         user_id=user.id,
-        account_id=account.id,
+        account_number=account.number,
         name=None,
         balance=None
     ))

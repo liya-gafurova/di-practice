@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from dependency_injector.wiring import Provide, inject
 
 from core.dependencies import Container
+from domain.account.entities import AccountNumber
 from domain.account.repositories import AccountRepository
 from shared.exceptions import EntityNotFoundException
 
@@ -27,6 +28,29 @@ async def get_account_by_id(
     if account.owner_id != query.user_id:
         print('User tries to access account, which does no owned by user.')
         raise EntityNotFoundException(query.account_id)
+
+    return account
+
+
+@dataclass
+class GetAccountByNumberDTO:
+    user_id: uuid.UUID
+    account_number: str
+
+
+@inject
+async def get_account_by_number(
+        query: GetAccountByNumberDTO,
+        session_maker=Provide[Container.db_session],
+        account_repo: AccountRepository = Provide[Container.account_repo]
+):
+    account_repo.session = session_maker()
+
+    account = await account_repo.get_by_number(query.account_number)
+
+    if account.owner_id != query.user_id:
+        print('User tries to access account, which does no owned by user.')
+        raise EntityNotFoundException(query.account_number)
 
     return account
 
