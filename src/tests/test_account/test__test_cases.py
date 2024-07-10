@@ -3,11 +3,13 @@ from decimal import Decimal
 import pytest
 
 from domain.account.commands import add_transaction_for_user, AddTransactionDTO, update_account, UpdateAccountDTO, \
-    create_account, CreateAccountDTO
+    create_account, CreateAccountDTO, delete_account, DeleteAccountDTO
 from domain.account.queries import GetAccountByIdDTO, get_account_by_id, GetAllUserAccountsDTO, get_all_user_accounts
 from domain.transaction.entities import TransactionType
-from domain.transaction.queries import get_account_transactions, GetAccountTransactionsDTO
-from shared.exceptions import IncorrectData
+from domain.transaction.queries import get_account_transactions, GetAccountTransactionsDTO, GetUserTransactionsDTO, \
+    get_user_transactions
+from shared.exceptions import IncorrectData, EntityNotFoundException
+from tests.test_account.test__account__remove import prepare_account_for_removing
 
 
 ################
@@ -192,3 +194,34 @@ async def test__add_correction_transaction__update_balance(
     assert updated_account.balance == accounts[0].balance + balance_delta
     # correction tx are filtered out
     assert len(sorted__account_txs__after) == len(sorted__account_txs__before)
+
+
+@pytest.mark.asyncio
+async def test__account_delete(
+        clean_db,
+        container,
+        user_accounts_transactions,
+        another_user_transactions
+):
+    user, accounts, txs = user_accounts_transactions
+
+    account = await get_account_by_id(GetAccountByIdDTO(user.id, accounts[0].id))
+    if account.balance != Decimal(0.0):
+
+        # transfer account balance to another user account
+        await prepare_account_for_removing(
+            user=user,
+            account_to_be_deleted=account,
+            another_user_account=accounts[1]
+        )
+
+    user_txs__before = await get_user_transactions(GetUserTransactionsDTO(user.id))
+
+    # perform removing
+    await delete_account(DeleteAccountDTO(user.id, account.number))
+
+    user_txs__after = await get_user_transactions(GetUserTransactionsDTO(user.id))
+    assert user_txs__before == user_txs__after
+
+    with pytest.raises(EntityNotFoundException):
+        await get_account_by_id(GetAccountByIdDTO(user.id, account.id))

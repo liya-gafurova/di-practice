@@ -103,8 +103,8 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
             if instance is None:
                 raise EntityNotFoundException(entity_id=entity.id)
 
-            await self._session.delete(balance)
-            await self._session.delete(instance)
+            balance.delete()
+            instance.delete()
             await self._session.commit()
 
     async def get_all__user(self, user_id: uuid.UUID):

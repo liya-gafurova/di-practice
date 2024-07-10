@@ -55,8 +55,8 @@ async def get_transactions_data(user):
 
     display_data = []
     for tx in txs:
-        credit_acc = find(user_accounts, lambda acc: acc.id == tx.credit_account)
-        debit_acc = find(user_accounts, lambda acc: acc.id == tx.debit_account)
+        credit_acc = find(user_accounts, lambda acc: acc.number == tx.credit_account)
+        debit_acc = find(user_accounts, lambda acc: acc.number == tx.debit_account)
         display_data.append(
             TransactionReadModel(
                 debit_account=debit_acc.name if debit_acc else None,
@@ -91,8 +91,8 @@ async def add_transaction__form(st, user):
             await add_transaction_for_user(
                 AddTransactionDTO(
                     user_id=user.id,
-                    credit_account=credit_account.id if credit_account else None,
-                    debit_account=debit_account.id if debit_account else None,
+                    credit_account=credit_account.number if credit_account else None,
+                    debit_account=debit_account.number if debit_account else None,
                     amount=amount
                 )
             )
@@ -141,30 +141,26 @@ async def delete_account__form(st, user):
 
         submitted = st.form_submit_button("Delete")
         if submitted:
-            account = await get_account_by_number(GetAccountByNumberDTO(user.id, account_number))
-            await delete_account(DeleteAccountDTO(user.id, account.id))
+            await delete_account(DeleteAccountDTO(user.id, account_number))
 
 
 async def accounts_page(st):
     user = await get_user_by_id(GetUserDTO(id=uuid.UUID(DB_USER_ID)))
 
     accounts_data = await get_accounts_data(user)
-    with st.container():
-        table_zone, functions_zone = st.columns(2)
-        with table_zone:
-            st.table(data=accounts_data)
-        with functions_zone:
-            await add_account__form(st, user)
-            await update_account__form(st, user)
-            # await delete_account__form(st, user)
-
     txs_data = await get_transactions_data(user)
     with st.container():
-        table_zone, functions_zone = st.columns(2)
-        with table_zone:
-            st.table(data=txs_data)
-        with functions_zone:
+        txs_zone, accounts_zone = st.columns(2)
+        with txs_zone:
             await add_transaction__form(st, user)
+            st.table(data=txs_data)
+
+        with accounts_zone:
+            await add_account__form(st, user)
+            st.table(data=accounts_data)
+
+            await update_account__form(st, user)
+            await delete_account__form(st, user)
 
 
 if __name__ == '__main__':
