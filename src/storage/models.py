@@ -30,7 +30,7 @@ class AccountBalanceModel(Base):
 class TransactionModel(Base):
     __tablename__ = 'transaction'
     user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
-    credit_account: Mapped[str] = mapped_column(ForeignKey('account.id'), nullable=True)
-    debit_account: Mapped[str] = mapped_column(ForeignKey('account.id'), nullable=True)
+    credit_account: Mapped[str] = mapped_column(ForeignKey('account.number'), nullable=True)
+    debit_account: Mapped[str] = mapped_column(ForeignKey('account.number'), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     type: Mapped[str] = mapped_column(String(128), nullable=True, index=True, unique=False)

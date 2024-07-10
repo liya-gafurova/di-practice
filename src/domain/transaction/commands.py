@@ -5,6 +5,8 @@ from decimal import Decimal
 from dependency_injector.wiring import inject, Provide
 
 from core.dependencies import Container
+from domain.account.entities import AccountNumber
+from domain.account.repositories import AccountRepository
 from domain.transaction.entities import Transaction, TransactionType
 from shared.exceptions import EntityNotFoundException, IncorrectData
 
@@ -12,8 +14,8 @@ from shared.exceptions import EntityNotFoundException, IncorrectData
 @dataclass
 class CreateTransactionDTO:
     user_id: uuid.UUID
-    credit_account_id: uuid.UUID | None
-    debit_account_id: uuid.UUID | None
+    credit_account: AccountNumber | None
+    debit_account: AccountNumber | None
     amount: int | float | Decimal
     type: None | TransactionType = None
 
@@ -23,29 +25,29 @@ async def create_transaction(
         command: CreateTransactionDTO,
         session_maker=Provide[Container.db_session],
         tx_repo=Provide[Container.tx_repo],
-        account_repo=Provide[Container.account_repo]
+        account_repo:AccountRepository=Provide[Container.account_repo]
 ):
     session = session_maker()
     account_repo.session = session
     tx_repo.session = session
 
-    if command.debit_account_id is None and command.credit_account_id is None:
+    if command.debit_account is None and command.credit_account is None:
         raise IncorrectData('Credit and Debit accounts cannot Null')
 
-    if command.debit_account_id == command.credit_account_id:
+    if command.debit_account == command.credit_account:
         raise IncorrectData('Credit and Debit accounts cannot be the same.')
 
     credit_account, debit_account = None, None
-    if command.debit_account_id:
-        debit_account = await account_repo.get_by_id(command.debit_account_id)
-    if command.credit_account_id:
-        credit_account = await account_repo.get_by_id(command.credit_account_id)
+    if command.debit_account:
+        debit_account = await account_repo.get_by_number(command.debit_account)
+    if command.credit_account:
+        credit_account = await account_repo.get_by_number(command.credit_account)
 
     if credit_account and credit_account.owner_id != command.user_id \
             or debit_account and debit_account.owner_id != command.user_id:
-        account_id = credit_account.id if credit_account.owner_id != command.user_id else debit_account.owner_id
+        account_number = credit_account.number if credit_account.owner_id != command.user_id else debit_account.number
         print('User tries to create transaction with account, which does no owned by user.')
-        raise EntityNotFoundException(account_id)
+        raise EntityNotFoundException(account_number)
 
     if credit_account and credit_account.balance < command.amount:
         raise IncorrectData(f'User tries to transfer from {command.amount} from account with balance {credit_account.balance}')
@@ -60,8 +62,8 @@ async def create_transaction(
 
     tx = Transaction(
         id=Transaction.next_id(),
-        credit_account=credit_account.id if credit_account else None,
-        debit_account=debit_account.id if debit_account else None,
+        credit_account=credit_account.number if credit_account else None,
+        debit_account=debit_account.number if debit_account else None,
         amount=command.amount,
         user_id=command.user_id,
         type=command.type

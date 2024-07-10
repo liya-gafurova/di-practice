@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import select, and_, or_
 
+from domain.account.entities import AccountNumber
 from domain.transaction.entities import Transaction, TransactionType
 from domain.transaction.repositories import TransactionRepository
 from shared.data_mapper import DataMapper
@@ -37,7 +38,7 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
 
     async def get_user_transactions(self, user_id: uuid.UUID) -> list[Transaction]:
         user_accounts__subquery = select(
-            AccountModel.id
+            AccountModel.number
         ).where(
             and_(
                 AccountModel.owner_id == user_id,
@@ -61,14 +62,15 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
 
         return [self._get_entity(instance) for instance in instances]
 
-    async def get_account_transactions(self, account_id: uuid.UUID) -> list[Transaction]:
+    async def get_account_transactions(self, account_number: AccountNumber) -> list[Transaction]:
         stmt = select(TransactionModel).where(
-            or_(
-                TransactionModel.debit_account == account_id,
-                TransactionModel.credit_account == account_id,
+            and_(
+                or_(
+                    TransactionModel.debit_account == account_number,
+                    TransactionModel.credit_account == account_number
+                ),
+                TransactionModel.type != TransactionType.CORRECTION.value
             )
-        ).where(
-            TransactionModel.type !=TransactionType.CORRECTION.value
         ).order_by(
             TransactionModel.created_at.desc()
         )

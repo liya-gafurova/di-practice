@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
 
+from domain.account.entities import AccountNumber
 from shared.entities import Entity
 
 
@@ -16,8 +17,8 @@ class TransactionType(str, Enum):
 @dataclass
 class Transaction(Entity):
     user_id: uuid.UUID
-    credit_account: uuid.UUID | None  # from
-    debit_account: uuid.UUID | None   # to
+    credit_account: AccountNumber | None  # from
+    debit_account: AccountNumber | None   # to
     amount: float
     _amount: Decimal = field(init=False, repr=False)
     type: None | TransactionType = None

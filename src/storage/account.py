@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.exc import IntegrityError
 
 from domain.account.entities import Account
@@ -122,11 +122,20 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
         income__subquery = select(
             TransactionModel.debit_account,
             func.coalesce(func.sum(TransactionModel.amount), 0).label('income')
-        ).select_from(TransactionModel).where(
-            TransactionModel.debit_account == account_id
+        ).select_from(
+            TransactionModel
+        ).join(
+            AccountModel,
+            and_(
+                AccountModel.id == account_id,
+                or_(
+                    AccountModel.number == TransactionModel.credit_account,
+                    AccountModel.number == TransactionModel.debit_account
+                )
+            )
         ).join(
             AccountBalanceModel,
-            AccountBalanceModel.account_id == TransactionModel.debit_account
+            AccountBalanceModel.account_id == AccountModel.id
         ).where(
             and_(
                 TransactionModel.created_at > AccountBalanceModel.updated_at,
@@ -139,11 +148,20 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
         outcome__subquery = select(
             TransactionModel.credit_account,
             func.coalesce(func.sum(TransactionModel.amount), 0).label('outcome')
-        ).select_from(TransactionModel).where(
-            TransactionModel.credit_account == account_id
+        ).select_from(
+            TransactionModel
+        ).join(
+            AccountModel,
+            and_(
+                AccountModel.id == account_id,
+                or_(
+                    AccountModel.number == TransactionModel.credit_account,
+                    AccountModel.number == TransactionModel.debit_account
+                )
+            )
         ).join(
             AccountBalanceModel,
-            AccountBalanceModel.account_id == TransactionModel.credit_account
+            AccountBalanceModel.account_id == AccountModel.id
         ).where(
             and_(
                 TransactionModel.created_at > AccountBalanceModel.updated_at,
@@ -158,9 +176,9 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
         ).select_from(
             AccountModel
         ).join(
-            income__subquery, income__subquery.c.debit_account == AccountModel.id, isouter=True
+            income__subquery, income__subquery.c.debit_account == AccountModel.number, isouter=True
         ).join(
-            outcome__subquery, outcome__subquery.c.credit_account == AccountModel.id, isouter=True
+            outcome__subquery, outcome__subquery.c.credit_account == AccountModel.number, isouter=True
         ).where(AccountModel.id == account_id)
 
         async with self._session:

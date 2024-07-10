@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from dependency_injector.wiring import Provide, inject
 
 from core.dependencies import Container
+from domain.account.entities import AccountNumber
 from domain.account.repositories import AccountRepository
 from shared.exceptions import EntityNotFoundException
 

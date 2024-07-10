@@ -11,7 +11,7 @@ from shared.exceptions import EntityNotFoundException, ThisActionIsForbidden
 async def test__account_delete(clean_db, container, user_account):
     user, account = user_account
 
-    await delete_account(DeleteAccountDTO(user.id, account.id))
+    await delete_account(DeleteAccountDTO(user.id, account.number))
 
     with pytest.raises(EntityNotFoundException):
         account = await get_account_by_id(GetAccountByIdDTO(user.id, account.id))
@@ -28,7 +28,7 @@ async def test__account_delete__another_user_account(
     another_user, another_account = another_user_account
 
     with pytest.raises(EntityNotFoundException):
-        await delete_account(DeleteAccountDTO(user.id, another_account.id))
+        await delete_account(DeleteAccountDTO(user.id, another_account.number))
 
 
 @pytest.mark.asyncio
@@ -38,7 +38,7 @@ async def test__account_delete__account_not_exists(
         user
 ):
     with pytest.raises(EntityNotFoundException):
-        await delete_account(DeleteAccountDTO(user.id, uuid.uuid4()))
+        await delete_account(DeleteAccountDTO(user.id, 'some number'))
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ async def test__account_delete__with_txs__not_zero_balance(clean_db, container, 
     user, accounts, txs = user_accounts_transactions
 
     with pytest.raises(ThisActionIsForbidden):
-        await delete_account(DeleteAccountDTO(user.id, accounts[0].id))
+        await delete_account(DeleteAccountDTO(user.id, accounts[0].number))
 
 
 @pytest.mark.asyncio
@@ -66,18 +66,17 @@ async def test__account_delete__with_txs__zero_balance(clean_db, container, user
     :return:
     """
     user, accounts, txs = user_accounts_transactions
-    account_to_be_deleted = accounts[0]
     another_account = accounts[1]
 
-    account_to_be_deleted = await get_account_by_id(GetAccountByIdDTO(user.id, account_to_be_deleted.id))
-    account_to_be_deleted__balance = account_to_be_deleted.balance
+    # get actual balance value
+    account_to_be_deleted = await get_account_by_id(GetAccountByIdDTO(user.id, accounts[0].id))
 
     # transfer account balance to another user account
     await add_transaction_for_user(AddTransactionDTO(
         user_id=user.id,
-        credit_account_id=account_to_be_deleted.id,
-        debit_account_id=another_account.id,
-        amount=account_to_be_deleted__balance
+        credit_account=account_to_be_deleted.number,
+        debit_account=another_account.number,
+        amount=account_to_be_deleted.balance
     ))
 
-    await delete_account(DeleteAccountDTO(user.id, account_to_be_deleted.id))
+    await delete_account(DeleteAccountDTO(user.id, account_to_be_deleted.number))

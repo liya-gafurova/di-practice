@@ -91,8 +91,8 @@ async def add_transaction__form(st, user):
             await add_transaction_for_user(
                 AddTransactionDTO(
                     user_id=user.id,
-                    credit_account_id=credit_account.id if credit_account else None,
-                    debit_account_id=debit_account.id if debit_account else None,
+                    credit_account=credit_account.id if credit_account else None,
+                    debit_account=debit_account.id if debit_account else None,
                     amount=amount
                 )
             )
@@ -124,11 +124,10 @@ async def update_account__form(st, user):
 
         submitted = st.form_submit_button("Update")
         if submitted:
-            account = await get_account_by_number(GetAccountByNumberDTO(user.id, account_number))
             await update_account(
                 UpdateAccountDTO(
                     user_id=user.id,
-                    account_id=account.id,
+                    account_number=account_number,
                     name=name,
                     balance=Decimal(balance).quantize(Decimal('0.01')) if balance else None
                 )

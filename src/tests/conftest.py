@@ -159,8 +159,8 @@ async def add_txs_to_user_accounts(
         tx = await add_transaction_for_user(
             AddTransactionDTO(
                 user_id=user.id,
-                credit_account_id=credit_and_debit_accounts[0].id if credit_and_debit_accounts[0] else None,
-                debit_account_id=credit_and_debit_accounts[1].id if credit_and_debit_accounts[1] else None,
+                credit_account=credit_and_debit_accounts[0].number if credit_and_debit_accounts[0] else None,
+                debit_account=credit_and_debit_accounts[1].number if credit_and_debit_accounts[1] else None,
                 amount=amount
             )
         )
