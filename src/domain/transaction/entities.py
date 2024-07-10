@@ -27,5 +27,5 @@ class Transaction(Entity):
         return self._amount
 
     @amount.setter
-    def amount(self, value: float):
+    def amount(self, value: float | Decimal):
         self._amount = Decimal(value).quantize(Decimal('.01'))

@@ -10,7 +10,7 @@ from domain.account.repositories import AccountRepository
 from domain.transaction.commands import CreateTransactionDTO, create_transaction
 from domain.transaction.entities import TransactionType
 from domain.user.repositories import UserRepository
-from shared.exceptions import EntityNotFoundException, IncorrectData
+from shared.exceptions import EntityNotFoundException, IncorrectData, ThisActionIsForbidden
 
 INCORRECT_BALANCE__MSG = 'Account Balance cannot be less than 0.00'
 
@@ -36,7 +36,8 @@ async def create_account(
     # check user exists
     user = await user_repo.get_by_id(command.user_id)
 
-    command.balance = Decimal(command.balance).quantize(Decimal('0.01')) if not isinstance(command.balance, Decimal) else command.balance
+    command.balance = Decimal(command.balance).quantize(Decimal('0.01')) if not isinstance(command.balance,
+                                                                                           Decimal) else command.balance
 
     # create account
     if command.balance < Decimal(0.00):
@@ -128,6 +129,9 @@ async def delete_account(
     if command.user_id != account.owner_id:
         print('User tries to delete account, which does no owned by user.')
         raise EntityNotFoundException(command.account_id)
+
+    if account.balance != Decimal(0.00):
+        raise ThisActionIsForbidden('Balance is not 0.00. Transfer all account balances to other accounts.')
 
     await account_repo.remove(account)
 

@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from decimal import Decimal
 
 import streamlit as st
 from dependency_injector import providers
@@ -8,7 +9,8 @@ from pydash import find
 from client.models import AccountReadModel, TransactionReadModel
 from core.dependencies import Container
 from core.settings import settings
-from domain.account.commands import CreateAccountDTO, create_account, AddTransactionDTO, add_transaction_for_user
+from domain.account.commands import CreateAccountDTO, create_account, AddTransactionDTO, add_transaction_for_user, \
+    update_account, UpdateAccountDTO, delete_account, DeleteAccountDTO
 from domain.transaction.queries import get_user_transactions, GetUserTransactionsDTO
 from src.domain.account.entities import Account
 from src.domain.account.queries import GetAllUserAccountsDTO, get_all_user_accounts, get_account_by_number, \
@@ -68,6 +70,7 @@ async def get_transactions_data(user):
 
 async def add_transaction__form(st, user):
     with st.form('Add Transaction'):
+        st.write('Add')
         from_number = st.text_input('From Account', value=None)
         to_number = st.text_input('To Account', value=None)
         amount = st.number_input('Transaction Amount')
@@ -97,6 +100,7 @@ async def add_transaction__form(st, user):
 
 async def add_account__form(st, user):
     with st.form('Add account'):
+        st.write('Add')
         account_name = st.text_input('Account Name')
         account_balance = st.number_input('Account Balance')
 
@@ -106,9 +110,40 @@ async def add_account__form(st, user):
                 CreateAccountDTO(
                     user_id=user.id,
                     name=account_name,
-                    balance=account_balance
+                    balance=Decimal(account_balance).quantize(Decimal('0.01'))
                 )
             )
+
+
+async def update_account__form(st, user):
+    with st.form('Update Account'):
+        st.write('Update')
+        account_number = st.text_input('Account Number')
+        name = st.text_input('Account Name', value=None)
+        balance = st.number_input('Account Balance', value=None)
+
+        submitted = st.form_submit_button("Update")
+        if submitted:
+            account = await get_account_by_number(GetAccountByNumberDTO(user.id, account_number))
+            await update_account(
+                UpdateAccountDTO(
+                    user_id=user.id,
+                    account_id=account.id,
+                    name=name,
+                    balance=Decimal(balance).quantize(Decimal('0.01')) if balance else None
+                )
+            )
+
+
+async def delete_account__form(st, user):
+    with st.form('Delete Account'):
+        st.write('Delete')
+        account_number = st.text_input('Account Number')
+
+        submitted = st.form_submit_button("Delete")
+        if submitted:
+            account = await get_account_by_number(GetAccountByNumberDTO(user.id, account_number))
+            await delete_account(DeleteAccountDTO(user.id, account.id))
 
 
 async def accounts_page(st):
@@ -116,18 +151,20 @@ async def accounts_page(st):
 
     accounts_data = await get_accounts_data(user)
     with st.container():
-        col1, col2 = st.columns(2)
-        with col1:
+        table_zone, functions_zone = st.columns(2)
+        with table_zone:
             st.table(data=accounts_data)
-        with col2:
+        with functions_zone:
             await add_account__form(st, user)
+            await update_account__form(st, user)
+            # await delete_account__form(st, user)
 
     txs_data = await get_transactions_data(user)
     with st.container():
-        col1, col2 = st.columns(2)
-        with col1:
+        table_zone, functions_zone = st.columns(2)
+        with table_zone:
             st.table(data=txs_data)
-        with col2:
+        with functions_zone:
             await add_transaction__form(st, user)
 
 

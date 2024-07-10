@@ -14,5 +14,9 @@ class EntityAlreadyCreatedException(Exception):
 
 class IncorrectData(Exception):
     def __init__(self, message):
-        message = message
+        super().__init__(message)
+
+
+class ThisActionIsForbidden(Exception):
+    def __init__(self, message: str):
         super().__init__(message)

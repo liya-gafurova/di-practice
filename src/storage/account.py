@@ -100,7 +100,6 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
         async with self._session:
             instance = await self._session.get(AccountModel, entity.id)
             balance = (await self._session.scalars(select(AccountBalanceModel).where(AccountBalanceModel.account_id == entity.id).limit(1))).first()
-
             if instance is None:
                 raise EntityNotFoundException(entity_id=entity.id)
 

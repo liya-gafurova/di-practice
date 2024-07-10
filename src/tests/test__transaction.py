@@ -3,12 +3,12 @@ import uuid
 from decimal import Decimal
 
 import pytest
-import pytest_asyncio
 
 from domain.transaction.commands import create_transaction, CreateTransactionDTO
 from domain.transaction.queries import get_user_transactions, GetUserTransactionsDTO, get_account_transactions, \
     GetAccountTransactionsDTO
 from shared.exceptions import EntityNotFoundException, IncorrectData
+from tests.conftest import user_accounts_transactions, another_user_transactions
 
 
 @pytest.mark.skip('Duplicate of test "test__create_transaction__transfer_tx"')
@@ -273,61 +273,6 @@ async def test__create_transaction__not_enough_money_on_credit_acc(
 
 #############################################################
 # Get Transactions
-
-@pytest_asyncio.fixture
-async def user_accounts_transactions(
-        clean_db, container,
-        user_accounts
-):
-    user, accounts = user_accounts
-
-    transactions = []
-    for i in range(10):
-        idxs = random.sample(list(range(0, len(accounts))), k=2)
-        credit_account = accounts[idxs[0]]
-        debit_account = accounts[idxs[1]]
-
-        amount = credit_account.balance * Decimal(0.1)
-
-        tx = await create_transaction(
-            CreateTransactionDTO(
-                user_id=user.id,
-                credit_account_id=credit_account.id,
-                debit_account_id=debit_account.id,
-                amount=amount
-            )
-        )
-        transactions.append(tx)
-
-    return user, accounts, transactions
-
-
-@pytest_asyncio.fixture
-async def another_user_transactions(
-        clean_db,
-        container,
-        another_user_accounts
-):
-    another_user, accounts = another_user_accounts
-    transactions = []
-    for i in range(10):
-        idxs = random.sample(list(range(0, len(accounts))), k=2)
-        credit_account = accounts[idxs[0]]
-        debit_account = accounts[idxs[1]]
-
-        amount = credit_account.balance * Decimal(0.1)
-
-        tx = await create_transaction(
-            CreateTransactionDTO(
-                user_id=another_user.id,
-                credit_account_id=credit_account.id,
-                debit_account_id=debit_account.id,
-                amount=amount
-            )
-        )
-        transactions.append(tx)
-
-    return another_user, accounts, transactions
 
 
 @pytest.mark.asyncio
