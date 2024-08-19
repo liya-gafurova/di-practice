@@ -42,8 +42,9 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
         ).where(
             and_(
                 AccountModel.owner_id == user_id,
+                AccountModel.deleted_at.is_(None)
             )
-        ).execution_options(include_deleted=True)
+        )
 
         stmt = select(TransactionModel).where(
             or_(
@@ -54,7 +55,7 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
             TransactionModel.type != TransactionType.CORRECTION.value
         ).order_by(
             TransactionModel.created_at.desc()
-        ).execution_options(include_deleted=True)
+        )
 
         async with self._session:
             instances = (await self._session.scalars(stmt)).all()

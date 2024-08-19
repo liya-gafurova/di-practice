@@ -31,6 +31,9 @@ async def create_transaction(
     account_repo.session = session
     tx_repo.session = session
 
+    command.amount = command.amount if isinstance(command.amount, Decimal) \
+        else Decimal(command.amount).quantize(Decimal('0.01'))
+
     if command.debit_account is None and command.credit_account is None:
         raise IncorrectData('Credit and Debit accounts cannot Null')
 

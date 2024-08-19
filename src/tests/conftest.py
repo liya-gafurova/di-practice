@@ -21,7 +21,7 @@ from shared.database import Base
 def create_engine_for_tests(db_url):
     # https://stackoverflow.com/questions/73613457/runtimeerror-task-running-at-at-got-future-future-pending-cb-protocol
     # to review db requests , echo=True
-    engine = create_async_engine(db_url.unicode_string(), poolclass=NullPool)
+    engine = create_async_engine(db_url.unicode_string(), poolclass=NullPool, echo=True)
     from shared.database import Base
     Base.metadata.bind = engine
     return engine
