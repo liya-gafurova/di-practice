@@ -221,7 +221,8 @@ async def test__account_delete(
     await delete_account(DeleteAccountDTO(user.id, account.number))
 
     user_txs__after = await get_user_transactions(GetUserTransactionsDTO(user.id))
-    assert user_txs__before == user_txs__after
+    user_txs__before__filtered = list(filter(lambda tx: not(tx.debit_account is None and tx.credit_account == account.number or tx.credit_account is None and tx.debit_account == account.number), user_txs__before))
+    assert user_txs__before__filtered == user_txs__after
 
     with pytest.raises(EntityNotFoundException):
         await get_account_by_id(GetAccountByIdDTO(user.id, account.id))

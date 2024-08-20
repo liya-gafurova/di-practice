@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from dependency_injector.wiring import inject, Provide
@@ -17,7 +18,9 @@ class CreateTransactionDTO:
     credit_account: AccountNumber | None
     debit_account: AccountNumber | None
     amount: int | float | Decimal
+    commited_on: datetime | None = None # For adding trx backdated
     type: None | TransactionType = None
+
 
 
 @inject
@@ -30,6 +33,11 @@ async def create_transaction(
     session = session_maker()
     account_repo.session = session
     tx_repo.session = session
+
+    command.commited_on = command.commited_on if command.commited_on else datetime.utcnow()
+
+    command.amount = command.amount if isinstance(command.amount, Decimal) \
+        else Decimal(command.amount).quantize(Decimal('0.01'))
 
     if command.debit_account is None and command.credit_account is None:
         raise IncorrectData('Credit and Debit accounts cannot Null')
