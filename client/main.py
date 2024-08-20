@@ -21,7 +21,12 @@ from tests.conftest import create_engine_for_tests
 st.set_page_config(layout="wide")
 st.title('Personal Finance')
 
-DB_USER_ID = '3ddf2e94-1eba-4079-8719-dc9fafa7edde'
+users = {
+    'lia': '3ddf2e94-1eba-4079-8719-dc9fafa7edde',
+    'test_user': 'cbfc9862-35a7-4375-9ca3-6b19096ed210',
+    'another_user': '69e3f71f-b9a4-4514-87f9-46b61979c249'
+}
+
 
 container = Container()
 container.engine.override(providers.Singleton(create_engine_for_tests, db_url=container.config.SQLALCHEMY_DATABASE_URI))
@@ -144,8 +149,8 @@ async def delete_account__form(st, user):
             await delete_account(DeleteAccountDTO(user.id, account_number))
 
 
-async def accounts_page(st):
-    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(DB_USER_ID)))
+async def main_page(st):
+    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(users['test_user'])))
 
     accounts_data = await get_accounts_data(user)
     txs_data = await get_transactions_data(user)
@@ -164,4 +169,4 @@ async def accounts_page(st):
 
 
 if __name__ == '__main__':
-    asyncio.run(accounts_page(st))
+    asyncio.run(main_page(st))
