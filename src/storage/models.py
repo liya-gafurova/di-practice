@@ -27,6 +27,12 @@ class AccountBalanceModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class CategoryModel(Base):
+    __tablename__ = 'category'
+    name: Mapped[str] = mapped_column(String(128), index=True, unique=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True)
+
+
 class TransactionModel(Base):
     __tablename__ = 'transaction'
     user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))

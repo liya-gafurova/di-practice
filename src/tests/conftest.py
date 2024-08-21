@@ -40,7 +40,9 @@ def container():
         'domain.account.commands',
         'domain.account.queries',
         'domain.transaction.commands',
-        'domain.transaction.queries'
+        'domain.transaction.queries',
+        'domain.category.commands',
+        'domain.category.queries'
     ])
 
     return container
