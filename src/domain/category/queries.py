@@ -31,6 +31,28 @@ async def get_category_by_id(
 
 
 @dataclass
+class GetCategoryByNameDTO:
+    name: str
+    user_id: uuid.UUID
+
+
+@inject
+async def get_category_by_name(
+        query: GetCategoryByNameDTO,
+        session_maker=Provide[Container.db_session],
+        category_repo: CategoryRepository = Provide[Container.category_repo],
+):
+    category_repo.session = session_maker()
+
+    category = await category_repo.get_by_name(query.name, query.user_id)
+
+    if category.user_id is not None and category.user_id != query.user_id:
+        raise EntityNotFoundException(query.name)
+
+    return category
+
+
+@dataclass
 class GetCategoriesDTO:
     user_id: uuid.UUID
 
@@ -51,5 +73,3 @@ async def get_categories(
     )
 
     return categories
-
-

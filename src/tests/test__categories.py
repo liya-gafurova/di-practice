@@ -57,6 +57,23 @@ async def test__create_custom_category(clean_db, container, user):
 
 
 @pytest.mark.asyncio
+async def test__create_custom_category__another_user_with_same_category(
+        clean_db,
+        container,
+        user,
+        existing_custom_category__another_user
+):
+    category_name = existing_custom_category__another_user.name
+    new_category = await create_custom_category(
+        CreateCustomCategoryDTO(name=category_name, user_id=user.id)
+    )
+
+    assert new_category.name == existing_custom_category__another_user.name
+    assert new_category.user_id == user.id
+    assert new_category.id is not None
+
+
+@pytest.mark.asyncio
 async def test__update_general_category(clean_db, container, user, existing_general_category):
     new_category_name = 'FOOD'
 
@@ -108,7 +125,6 @@ async def test__delete_custom_category(
         user,
         existing_custom_category
 ):
-
     result = await delete_category(
         DeleteCategoryByIdDTO(
             id=existing_custom_category.id,
@@ -138,7 +154,7 @@ async def test__delete_general_category(
                 id=existing_general_category.id,
                 user_id=user.id
             )
-    )
+        )
 
     not_deleted = await get_category_by_id(
         GetCategoryByIdDTO(
@@ -148,6 +164,28 @@ async def test__delete_general_category(
     )
 
     assert not_deleted == existing_general_category
+
+
+@pytest.mark.asyncio
+async def test__add_category_that_was_deleted(
+        clean_db,
+        container,
+        user,
+        existing_custom_category
+):
+    await delete_category(
+        DeleteCategoryByIdDTO(
+            id=existing_custom_category.id,
+            user_id=user.id
+        )
+    )
+
+    new_category = await create_custom_category(
+        CreateCustomCategoryDTO(
+            user_id=user.id,
+            name=existing_custom_category.name
+        )
+    )
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import String, ForeignKey, Numeric, DateTime
+from sqlalchemy import String, ForeignKey, Numeric, DateTime, UniqueConstraint
 from sqlalchemy.orm import mapped_column, Mapped
 
 from shared.database import Base
@@ -29,7 +29,10 @@ class AccountBalanceModel(Base):
 
 class CategoryModel(Base):
     __tablename__ = 'category'
-    name: Mapped[str] = mapped_column(String(128), index=True, unique=True, nullable=False)
+    __table_args__ = (
+        UniqueConstraint('name', 'user_id', 'deleted_at',  name='unique_category_for_user'),
+    )
+    name: Mapped[str] = mapped_column(String(128), index=True, unique=False, nullable=False)
     user_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True)
 
 
