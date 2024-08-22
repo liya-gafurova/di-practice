@@ -1,35 +1,11 @@
 import pytest
-import pytest_asyncio
 
 from domain.category.commands import update_category, UpdateCategoryDTO, delete_category, DeleteCategoryByIdDTO
 from domain.category.commands.create_category import create_general_category, CreateGeneralCategoryDTO, \
     create_custom_category, CreateCustomCategoryDTO
 from domain.category.queries import GetCategoryByIdDTO, get_category_by_id, get_categories, GetCategoriesDTO
 from shared.exceptions import EntityNotFoundException, ThisActionIsForbidden
-
-
-@pytest_asyncio.fixture
-async def existing_general_category(clean_db, container):
-    new_category = await create_general_category(
-        CreateGeneralCategoryDTO(name='medicine')
-    )
-    return new_category
-
-
-@pytest_asyncio.fixture
-async def existing_custom_category(clean_db, container, user):
-    new_category = await create_custom_category(
-        CreateCustomCategoryDTO(name='jeans', user_id=user.id)
-    )
-    return new_category
-
-
-@pytest_asyncio.fixture
-async def existing_custom_category__another_user(clean_db, container, another_user):
-    new_category = await create_custom_category(
-        CreateCustomCategoryDTO(name='shirts', user_id=another_user.id)
-    )
-    return new_category
+from tests.conftest import existing_general_category, existing_custom_category, existing_custom_category__another_user
 
 
 @pytest.mark.asyncio

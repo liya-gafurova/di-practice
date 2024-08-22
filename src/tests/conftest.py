@@ -200,3 +200,27 @@ async def another_user_transactions(
     transactions = await add_txs_to_user_accounts(another_user, accounts, 5)
 
     return another_user, accounts, transactions
+
+
+@pytest_asyncio.fixture
+async def existing_general_category(clean_db, container):
+    new_category = await create_general_category(
+        CreateGeneralCategoryDTO(name='medicine')
+    )
+    return new_category
+
+
+@pytest_asyncio.fixture
+async def existing_custom_category(clean_db, container, user):
+    new_category = await create_custom_category(
+        CreateCustomCategoryDTO(name='jeans', user_id=user.id)
+    )
+    return new_category
+
+
+@pytest_asyncio.fixture
+async def existing_custom_category__another_user(clean_db, container, another_user):
+    new_category = await create_custom_category(
+        CreateCustomCategoryDTO(name='shirts', user_id=another_user.id)
+    )
+    return new_category
