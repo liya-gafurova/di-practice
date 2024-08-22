@@ -22,6 +22,7 @@ class Transaction(Entity):
     amount: float
     _amount: Decimal = field(init=False, repr=False)
     type: None | TransactionType = None
+    category_id: uuid.UUID | None = None
 
     @property
     def amount(self):

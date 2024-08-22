@@ -42,4 +42,5 @@ class TransactionModel(Base):
     credit_account: Mapped[str] = mapped_column(String(128), index=True, unique=False, nullable=True)
     debit_account: Mapped[str] = mapped_column(String(128), index=True, unique=False, nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    category_id: Mapped['str'] = mapped_column(ForeignKey('category.id'), nullable=True)
     type: Mapped[str] = mapped_column(String(128), nullable=True, index=True, unique=False)

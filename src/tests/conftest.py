@@ -13,6 +13,8 @@ from core.settings import settings
 from domain.account.commands import create_account, CreateAccountDTO, AddTransactionDTO, add_transaction_for_user
 from domain.account.entities import Account
 from domain.account.queries import get_account_by_id, GetAccountByIdDTO
+from domain.category.commands import create_general_category, CreateGeneralCategoryDTO, create_custom_category, \
+    CreateCustomCategoryDTO
 from domain.transaction.entities import Transaction, TransactionType
 from domain.user.entities import User
 from shared.database import Base
@@ -21,7 +23,11 @@ from shared.database import Base
 def create_engine_for_tests(db_url):
     # https://stackoverflow.com/questions/73613457/runtimeerror-task-running-at-at-got-future-future-pending-cb-protocol
     # to review db requests , echo=True
-    engine = create_async_engine(db_url.unicode_string(), poolclass=NullPool, echo=True)
+    engine = create_async_engine(
+        db_url.unicode_string(),
+        poolclass=NullPool,
+        echo=True
+    )
     from shared.database import Base
     Base.metadata.bind = engine
     return engine
