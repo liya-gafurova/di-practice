@@ -8,6 +8,7 @@ from dependency_injector.wiring import inject, Provide
 from core.dependencies import Container
 from domain.account.entities import AccountNumber
 from domain.account.repositories import AccountRepository
+from domain.category.entities import Category
 from domain.category.repositories import CategoryRepository
 from domain.transaction.entities import Transaction, TransactionType
 from shared.exceptions import EntityNotFoundException, IncorrectData
@@ -39,6 +40,7 @@ async def create_transaction(
 
     command.commited_on = command.commited_on if command.commited_on else datetime.utcnow()
 
+    category = None
     if command.category_id:
         category = await category_repo.get_by_id(command.category_id)
         if not category.is_available_for_user(command.user_id):
@@ -83,7 +85,7 @@ async def create_transaction(
         amount=command.amount,
         user_id=command.user_id,
         type=command.type,
-        category_id=command.category_id
+        category_id=category.id if category else None
     )
 
     await tx_repo.add(tx)

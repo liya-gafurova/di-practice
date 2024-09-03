@@ -36,7 +36,7 @@ container.wire(modules=[
 
 
 async def main_page(st):
-    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(users['test_user'])))
+    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(users['lia'])))
     accounts_data = await get_accounts_data(user)
     txs_data = await get_transactions_data(user)
     categories = await get_categories_data(user.id)

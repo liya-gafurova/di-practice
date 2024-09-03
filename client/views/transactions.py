@@ -1,3 +1,5 @@
+from unicodedata import category
+
 from pydash import find
 
 from client.models import TransactionReadModel
@@ -21,7 +23,8 @@ async def get_transactions_data(user):
                 debit_account=debit_acc.name if debit_acc else None,
                 amount=tx.amount,
                 credit_account=credit_acc.name if credit_acc else None,
-                type=tx.type
+                type=tx.type,
+                category=tx.category.name if tx.category else None
             ).model_dump(by_alias=True)
         )
     return display_data

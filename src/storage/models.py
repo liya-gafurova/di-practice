@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import String, ForeignKey, Numeric, DateTime, UniqueConstraint
-from sqlalchemy.orm import mapped_column, Mapped
+from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from shared.database import Base
 
@@ -44,3 +44,5 @@ class TransactionModel(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     category_id: Mapped['str'] = mapped_column(ForeignKey('category.id'), nullable=True)
     type: Mapped[str] = mapped_column(String(128), nullable=True, index=True, unique=False)
+
+    category: Mapped["CategoryModel"] = relationship(lazy='joined')

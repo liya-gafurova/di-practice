@@ -4,6 +4,7 @@ from decimal import Decimal
 from enum import Enum
 
 from domain.account.entities import AccountNumber
+from domain.category.entities import Category
 from shared.entities import Entity
 
 
@@ -23,6 +24,7 @@ class Transaction(Entity):
     _amount: Decimal = field(init=False, repr=False)
     type: None | TransactionType = None
     category_id: uuid.UUID | None = None
+    category: None | Category = None
 
     @property
     def amount(self):

@@ -1,8 +1,10 @@
 import uuid
+from unicodedata import category
 
 from sqlalchemy import select, and_, or_
 
 from domain.account.entities import AccountNumber
+from domain.category.entities import Category
 from domain.transaction.entities import Transaction, TransactionType
 from domain.transaction.repositories import TransactionRepository
 from shared.data_mapper import DataMapper
@@ -19,7 +21,12 @@ class TransactionDataMapper(DataMapper):
             user_id=instance.user_id,
             amount=instance.amount,
             type=instance.type,
-            category_id=instance.category_id
+            category_id=instance.category_id,
+            category=Category(
+                id=instance.category_id,
+                name=instance.category.name,
+                user_id=instance.category.user_id)
+            if instance.category else None
         )
 
     def entity_to_model(self, entity: Transaction) -> TransactionModel:
@@ -37,6 +44,7 @@ class TransactionDataMapper(DataMapper):
 class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepository):
     model_class = TransactionModel
     mapper_class = TransactionDataMapper
+
 
     async def get_user_transactions(self, user_id: uuid.UUID) -> list[Transaction]:
         user_accounts__subquery = select(
