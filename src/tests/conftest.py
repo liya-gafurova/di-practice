@@ -13,6 +13,8 @@ from core.settings import settings
 from domain.account.commands import create_account, CreateAccountDTO, AddTransactionDTO, add_transaction_for_user
 from domain.account.entities import Account
 from domain.account.queries import get_account_by_id, GetAccountByIdDTO
+from domain.category.commands import create_general_category, CreateGeneralCategoryDTO, create_custom_category, \
+    CreateCustomCategoryDTO
 from domain.transaction.entities import Transaction, TransactionType
 from domain.user.entities import User
 from shared.database import Base
@@ -21,7 +23,11 @@ from shared.database import Base
 def create_engine_for_tests(db_url):
     # https://stackoverflow.com/questions/73613457/runtimeerror-task-running-at-at-got-future-future-pending-cb-protocol
     # to review db requests , echo=True
-    engine = create_async_engine(db_url.unicode_string(), poolclass=NullPool, echo=True)
+    engine = create_async_engine(
+        db_url.unicode_string(),
+        poolclass=NullPool,
+        echo=True
+    )
     from shared.database import Base
     Base.metadata.bind = engine
     return engine
@@ -40,7 +46,9 @@ def container():
         'domain.account.commands',
         'domain.account.queries',
         'domain.transaction.commands',
-        'domain.transaction.queries'
+        'domain.transaction.queries',
+        'domain.category.commands',
+        'domain.category.queries'
     ])
 
     return container
@@ -192,3 +200,27 @@ async def another_user_transactions(
     transactions = await add_txs_to_user_accounts(another_user, accounts, 5)
 
     return another_user, accounts, transactions
+
+
+@pytest_asyncio.fixture
+async def existing_general_category(clean_db, container):
+    new_category = await create_general_category(
+        CreateGeneralCategoryDTO(name='medicine')
+    )
+    return new_category
+
+
+@pytest_asyncio.fixture
+async def existing_custom_category(clean_db, container, user):
+    new_category = await create_custom_category(
+        CreateCustomCategoryDTO(name='jeans', user_id=user.id)
+    )
+    return new_category
+
+
+@pytest_asyncio.fixture
+async def existing_custom_category__another_user(clean_db, container, another_user):
+    new_category = await create_custom_category(
+        CreateCustomCategoryDTO(name='shirts', user_id=another_user.id)
+    )
+    return new_category

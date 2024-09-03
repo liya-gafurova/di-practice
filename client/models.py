@@ -19,5 +19,6 @@ class TransactionReadModel(BaseModel):
     amount: Decimal
     debit_account: AccountNumber | None = Field(None, alias='to')
     type: TransactionType
+    category: None | str = None
 
     model_config = ConfigDict(populate_by_name=True)

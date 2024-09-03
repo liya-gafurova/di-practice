@@ -271,6 +271,88 @@ async def test__create_transaction__not_enough_money_on_credit_acc(
         )
 
 
+@pytest.mark.asyncio
+async def test__create_transaction__with_category_id(
+        clean_db,
+        container,
+        user_accounts,
+        existing_custom_category,
+        existing_general_category
+):
+    user, accounts = user_accounts
+    debit_account = accounts[0]
+    amount = Decimal(10.00)
+
+    tx = await create_transaction(
+        CreateTransactionDTO(
+            user_id=user.id,
+            credit_account=None,
+            debit_account=debit_account.number,
+            amount=amount,
+            category_id=existing_general_category.id
+        )
+    )
+
+    user_txs = await get_user_transactions(
+        GetUserTransactionsDTO(
+            user_id=user.id
+        )
+    )
+    last_tx = user_txs[0]
+
+    assert last_tx.category_id == existing_general_category.id
+    assert last_tx.user_id == user.id
+    assert last_tx.debit_account == debit_account.number
+    assert last_tx.amount == amount
+
+
+@pytest.mark.asyncio
+async def test__create_transaction__with_category_id__category_id_does_not_exists(
+        clean_db,
+        container,
+        user_accounts,
+        existing_custom_category,
+        existing_general_category
+):
+    user, accounts = user_accounts
+    debit_account = accounts[0]
+    amount = Decimal(10.00)
+
+    with pytest.raises(EntityNotFoundException):
+        tx = await create_transaction(
+            CreateTransactionDTO(
+                user_id=user.id,
+                credit_account=None,
+                debit_account=debit_account.number,
+                amount=amount,
+                category_id=uuid.uuid4()
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test__create_transaction__with_category_id__category_id_of_another_user(
+        clean_db,
+        container,
+        user_accounts,
+        existing_custom_category__another_user,
+):
+    user, accounts = user_accounts
+    debit_account = accounts[0]
+    amount = Decimal(10.00)
+
+    with pytest.raises(EntityNotFoundException):
+        tx = await create_transaction(
+            CreateTransactionDTO(
+                user_id=user.id,
+                credit_account=None,
+                debit_account=debit_account.number,
+                amount=amount,
+                category_id=existing_custom_category__another_user.id
+            )
+        )
+
+
 #############################################################
 # Get Transactions
 

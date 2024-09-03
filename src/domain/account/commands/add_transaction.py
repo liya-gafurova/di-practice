@@ -25,10 +25,11 @@ async def add_transaction_for_user(
 
     tx = await create_transaction(
         CreateTransactionDTO(
-            command.user_id,
-            command.credit_account,
-            command.debit_account,
-            command.amount
+            user_id=command.user_id,
+            credit_account=command.credit_account,
+            debit_account=command.debit_account,
+            amount=command.amount,
+            category_id=command.category_id
         )
     )
 

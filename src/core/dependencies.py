@@ -1,8 +1,9 @@
 from dependency_injector import providers, containers
 from pydantic_core import MultiHostUrl
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from storage.account import AccountSqlalchemyRepository
+from storage.category import CategorySqlAlchemyRepository
 from storage.transaction import TransactionSqlAlchemyRepository
 from storage.user import UserSqlAlchemyRepository
 
@@ -43,4 +44,5 @@ class Container(containers.DeclarativeContainer):
     user_repo = providers.Factory(UserSqlAlchemyRepository)
     account_repo = providers.Factory(AccountSqlalchemyRepository)
     tx_repo = providers.Factory(TransactionSqlAlchemyRepository)
+    category_repo = providers.Factory(CategorySqlAlchemyRepository)
 

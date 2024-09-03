@@ -18,7 +18,13 @@ from tests.test_account.test__account__remove import prepare_account_for_removin
 ################
 
 @pytest.mark.asyncio
-async def test__create_account_transactions(clean_db, container, user_accounts):
+async def test__create_account_transactions(
+        clean_db,
+        container,
+        user_accounts,
+        existing_custom_category,
+        existing_general_category
+):
     user, accounts = user_accounts
 
     # add transfer
@@ -28,7 +34,8 @@ async def test__create_account_transactions(clean_db, container, user_accounts):
             user_id=user.id,
             credit_account=accounts[0].number,
             debit_account=accounts[1].number,
-            amount=transfer_amount
+            amount=transfer_amount,
+            category_id=existing_general_category.id
         )
     )
 
@@ -59,13 +66,18 @@ async def test__create_account_transactions(clean_db, container, user_accounts):
             user_id=user.id,
             credit_account=None,
             debit_account=accounts[0].number,
-            amount=debit_acc_amount3
+            amount=debit_acc_amount3,
+            category_id=existing_custom_category.id
         )
     )
     credited_account = await get_account_by_id(GetAccountByIdDTO(user.id, accounts[0].id))
 
     assert credited_account.balance == accounts[0].balance - transfer_amount - credit_acc_amount2 + debit_acc_amount3
     assert debited_account.balance == accounts[1].balance + transfer_amount
+
+    txs = await get_user_transactions(GetUserTransactionsDTO(user.id))
+
+    assert txs[0].category_id == existing_custom_category.id
 
 
 ################
