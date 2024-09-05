@@ -27,6 +27,27 @@ async def get_user_by_id(
     return user
 
 
+
+@dataclass
+class GetUserByNameDTO:
+    name: str
+
+
+@inject
+async def get_user_by_name(
+        query: GetUserByNameDTO,
+        db_session=Provide[Container.db_session],
+        repo=Provide[Container.user_repo]
+):
+    # check user_dto
+    repo.session = db_session()
+
+    # crate user
+    user = await repo.get_by_name(query.name)
+
+    return user
+
+
 @dataclass
 class GetUsersDTO:
     pass

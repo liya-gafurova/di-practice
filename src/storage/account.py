@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from requests import session
 from sqlalchemy import select, func, and_, or_, update
 from sqlalchemy.exc import IntegrityError
 
@@ -64,7 +65,13 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
             raise EntityAlreadyCreatedException()
 
     async def share_access(self, account_id: uuid.UUID, user_id: uuid.UUID):
-        pass
+        access = AccountAccessModel(account_id=account_id, user_id=user_id)
+
+        async with self._session:
+            self._session.add(access)
+            await self._session.commit()
+
+
 
     async def get_user_account_by_id(self, entity_id, user_id):
         async with self._session:
