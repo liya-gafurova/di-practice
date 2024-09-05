@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from enum import Enum
 
 import streamlit as st
 from dependency_injector import providers
@@ -13,13 +14,20 @@ from src.domain.user.queries import get_user_by_id, GetUserDTO
 from tests.conftest import create_engine_for_tests
 
 st.set_page_config(layout="wide")
-st.title('Personal Finance')
+
 
 users = {
-    'lia': '3ddf2e94-1eba-4079-8719-dc9fafa7edde',
+    'main_user': '3ddf2e94-1eba-4079-8719-dc9fafa7edde',
     'test_user': 'cbfc9862-35a7-4375-9ca3-6b19096ed210',
     'another_user': '69e3f71f-b9a4-4514-87f9-46b61979c249'
 }
+
+class Pages(str, Enum):
+    accounts = 'Accounts'
+    categories = 'Categories'
+    transactions  = 'Transactions'
+    title = 'Personal Finance'
+
 
 container = Container()
 container.engine.override(providers.Singleton(create_engine_for_tests, db_url=container.config.SQLALCHEMY_DATABASE_URI))
@@ -36,31 +44,37 @@ container.wire(modules=[
 
 
 async def main_page(st):
-    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(users['lia'])))
+    current_user_id = users['main_user']
+    current_user_name = {id: name for name, id in users.items()}[current_user_id]
+    st.title(f'{Pages.title} / {current_user_name}')
+
+    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(current_user_id)))
     accounts_data = await get_accounts_data(user)
     txs_data = await get_transactions_data(user)
     categories = await get_categories_data(user.id)
 
-    tab1, tab2, tab3 = st.tabs(["Accounts", "Transactions", "Categories"])
+    tab1, tab2, tab3 = st.tabs([Pages.accounts, Pages.transactions, Pages.categories])
     with tab1:
-        st.header("Accounts")
+        st.header(Pages.accounts.value)
 
         st.table(data=accounts_data)
         await add_account__form(st, user)
         await update_account__form(st, user)
         await delete_account__form(st, user)
     with tab2:
-        st.header("Transactions")
+        st.header(Pages.transactions.value)
 
         await add_transaction__form(st, user, accounts_data, categories)
         st.table(data=txs_data)
     with tab3:
-        st.header("Categories")
-
-        st.table(data=categories)
-        await add_category__form(st, user)
-        await edit_category__form(st, user)
-        await delete_category__form(st, user)
+        st.header(Pages.categories.value)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.table(data=categories)
+        with col2:
+            await add_category__form(st, user)
+            await edit_category__form(st, user)
+            await delete_category__form(st, user)
 
 
 

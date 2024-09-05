@@ -1,15 +1,17 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import select, func, and_, or_
+from requests import session
+from sqlalchemy import select, func, and_, or_, update
 from sqlalchemy.exc import IntegrityError
 
 from domain.account.entities import Account
 from domain.account.repositories import AccountRepository
-from shared.data_mapper import DataMapper, MapperModel, MapperEntity
+from shared.data_mapper import DataMapper
 from shared.exceptions import EntityAlreadyCreatedException, EntityNotFoundException
 from shared.repositories import SqlAlchemyRepository
-from storage.models import AccountModel, TransactionModel, AccountBalanceModel
+from storage.models import AccountModel, TransactionModel, AccountBalanceModel, AccountAccessModel
 
 
 class AccountDataMapper(DataMapper):
@@ -51,29 +53,54 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
         try:
             async with self._session:
                 self._session.add(instance)
-                await self._session.flush([instance])
+                await self._session.flush()
 
+                # add related objects - account balances, account access
                 self._session.add(AccountBalanceModel(account_id=instance.id, balance=account.balance))
+                self._session.add(AccountAccessModel(account_id=instance.id, user_id=instance.owner_id))
 
                 await self._session.commit()
 
         except IntegrityError as err:
             raise EntityAlreadyCreatedException()
 
-    async def get_by_id(self, entity_id):
+    async def share_access(self, account_id: uuid.UUID, user_id: uuid.UUID):
+        access = AccountAccessModel(account_id=account_id, user_id=user_id)
+
+        async with self._session:
+            self._session.add(access)
+            await self._session.commit()
+
+
+
+    async def get_user_account_by_id(self, entity_id, user_id):
         async with self._session:
             instance = (await self._session.execute(
-                self.accounts__stmt().where(AccountModel.id == entity_id).limit(1)
+                self.accounts__stmt().join(
+                    AccountAccessModel,
+                    and_(
+                        AccountAccessModel.account_id == AccountModel.id,
+                        AccountAccessModel.user_id == user_id
+                    )
+                ).where(AccountModel.id == entity_id).limit(1)
             )).first()
 
         if instance is None:
             raise EntityNotFoundException(entity_id=entity_id)
         return self.convert_to_account(instance[0], instance[1])
 
-    async def get_by_number(self, number: str):
+    async def get_by_number(self, number: str, user_id: uuid.UUID):
         async with self._session:
             instance = (await self._session.execute(
-                self.accounts__stmt().where(AccountModel.number == number).limit(1)
+                self.accounts__stmt().join(
+                    AccountAccessModel,
+                    and_(
+                        AccountAccessModel.account_id == AccountModel.id,
+                        AccountAccessModel.user_id == user_id
+                    )
+                ).where(
+                    AccountModel.number == number
+                ).limit(1)
             )).first()
 
         if instance is None:
@@ -99,18 +126,34 @@ class AccountSqlalchemyRepository(AccountRepository, SqlAlchemyRepository):
     async def remove(self, entity):
         async with self._session:
             instance = await self._session.get(AccountModel, entity.id)
-            balance = (await self._session.scalars(select(AccountBalanceModel).where(AccountBalanceModel.account_id == entity.id).limit(1))).first()
             if instance is None:
                 raise EntityNotFoundException(entity_id=entity.id)
+            balance = (await self._session.scalars(
+                select(AccountBalanceModel).where(AccountBalanceModel.account_id == entity.id).limit(1))).first()
 
+            # delete account and relate objects
+            soft_delete_stmt = (update(AccountAccessModel).where(
+                AccountAccessModel.account_id == entity.id
+            ).values(deleted_at = datetime.utcnow()))
+            await self._session.execute(soft_delete_stmt)
             balance.delete()
             instance.delete()
+
             await self._session.commit()
 
     async def get_all__user(self, user_id: uuid.UUID):
-        stmt = select(AccountModel, AccountBalanceModel.balance).join(
+        stmt = select(
+            AccountModel,
+            AccountBalanceModel.balance
+        ).join(
             AccountBalanceModel, AccountBalanceModel.account_id == AccountModel.id
-        ).where(AccountModel.owner_id == user_id)
+        ).join(
+            AccountAccessModel,
+            and_(
+                AccountAccessModel.account_id == AccountModel.id,
+                AccountAccessModel.user_id == user_id
+            )
+        )
 
         async with self._session:
             instances = (await self._session.execute(stmt)).all()

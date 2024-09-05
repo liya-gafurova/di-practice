@@ -5,7 +5,8 @@ from dependency_injector.wiring import inject, Provide
 from core.dependencies import Container
 from domain.user.entities import User
 from domain.user.commands import create_user, CreateUserDTO, update_user, UpdateUserDTO
-from domain.user.queries import get_user_by_id, GetUserDTO, get_all_users, GetUsersDTO
+from domain.user.queries import get_user_by_id, GetUserDTO, get_all_users, GetUsersDTO, get_user_by_name, \
+    GetUserByNameDTO
 
 
 @pytest_asyncio.fixture
@@ -37,6 +38,16 @@ async def test__get_user_by_id(clean_db, container, user):
 
     assert user_by_id.name == user.name
     assert user_by_id.id == user.id
+
+
+@pytest.mark.asyncio
+@inject
+async def test__get_user_by_name(clean_db, container, user):
+    user_by_name = await get_user_by_name(GetUserByNameDTO(user.name))
+
+    assert user_by_name.name == user.name
+    assert user_by_name.id == user.id
+
 
 
 @pytest.mark.asyncio

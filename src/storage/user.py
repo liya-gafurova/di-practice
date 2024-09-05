@@ -1,3 +1,5 @@
+from sqlalchemy import select
+
 from domain.user.entities import User
 
 from domain.user.repositories import UserRepository
@@ -28,3 +30,13 @@ class UserMapper(DataMapper):
 class UserSqlAlchemyRepository(UserRepository, SqlAlchemyRepository):
     model_class = UserModel
     mapper_class = UserMapper
+
+    async def get_by_name(self, name: str):
+        stmt = select(UserModel).filter_by(username=name).limit(1)
+
+        async with self._session:
+            instance = (await self._session.scalars(stmt)).first()
+
+        return self._get_entity(instance)
+
+
