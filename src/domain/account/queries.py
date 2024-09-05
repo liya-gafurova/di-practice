@@ -23,11 +23,7 @@ async def get_account_by_id(
 ):
     account_repo.session = session_maker()
 
-    account = await account_repo.get_by_id(query.account_id)
-
-    if account.owner_id != query.user_id:
-        print('User tries to access account, which does no owned by user.')
-        raise EntityNotFoundException(query.account_id)
+    account = await account_repo.get_user_account_by_id(query.account_id, query.user_id)
 
     return account
 
@@ -46,11 +42,7 @@ async def get_account_by_number(
 ):
     account_repo.session = session_maker()
 
-    account = await account_repo.get_by_number(query.account_number)
-
-    if account.owner_id != query.user_id:
-        print('User tries to access account, which does no owned by user.')
-        raise EntityNotFoundException(query.account_number)
+    account = await account_repo.get_by_number(query.account_number, query.user_id)
 
     return account
 

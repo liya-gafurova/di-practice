@@ -57,9 +57,9 @@ async def create_transaction(
 
     credit_account, debit_account = None, None
     if command.debit_account:
-        debit_account = await account_repo.get_by_number(command.debit_account)
+        debit_account = await account_repo.get_by_number(command.debit_account, command.user_id)
     if command.credit_account:
-        credit_account = await account_repo.get_by_number(command.credit_account)
+        credit_account = await account_repo.get_by_number(command.credit_account, command.user_id)
 
     if credit_account and credit_account.owner_id != command.user_id \
             or debit_account and debit_account.owner_id != command.user_id:

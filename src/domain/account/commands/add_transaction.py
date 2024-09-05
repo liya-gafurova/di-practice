@@ -35,12 +35,12 @@ async def add_transaction_for_user(
 
     if command.credit_account:
         await update_account_balance(
-            UpdateAccountBalanceDTO(command.credit_account)
+            UpdateAccountBalanceDTO(command.user_id, command.credit_account)
         )
 
     if command.debit_account:
         await update_account_balance(
-            UpdateAccountBalanceDTO(command.debit_account)
+            UpdateAccountBalanceDTO(command.user_id, command.debit_account)
         )
 
     return tx
@@ -81,7 +81,7 @@ async def add_correction_transaction(
     )
 
     await update_account_balance(
-        UpdateAccountBalanceDTO(command.account_number)
+        UpdateAccountBalanceDTO(command.user_id, command.account_number)
     )
 
     return tx
@@ -89,6 +89,7 @@ async def add_correction_transaction(
 
 @dataclass
 class UpdateAccountBalanceDTO:
+    user_id: uuid.UUID
     account_number: AccountNumber
 
 
@@ -101,7 +102,7 @@ async def update_account_balance(
     session = session_maker()
     account_repo.session = session
 
-    account = await account_repo.get_by_number(command.account_number)
+    account = await account_repo.get_by_number(command.account_number, command.user_id)
     balance_delta = await account_repo.calculate_balance(account.id)
 
     # if balance changes since last calculation

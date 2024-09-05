@@ -29,11 +29,7 @@ async def update_account(
 ):
     account_repo.session = session_maker()
 
-    account = await account_repo.get_by_number(command.account_number)
-
-    if command.user_id != account.owner_id:
-        print('User tries to update account, which does no owned by user.')
-        raise EntityNotFoundException(command.account_number)
+    account = await account_repo.get_by_number(command.account_number, command.user_id)
 
     if command.name:
         account.name = command.name

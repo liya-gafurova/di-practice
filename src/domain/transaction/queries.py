@@ -45,9 +45,7 @@ async def get_account_transactions(
     tx_repo.session = session
     account_repo.session = session
 
-    account = await account_repo.get_by_number(query.account_number)
-    if account.owner_id != query.user_id:
-        raise EntityNotFoundException(query.account_number)
+    account = await account_repo.get_by_number(query.account_number, query.user_id)
 
     account_txs = await tx_repo.get_account_transactions(account.number)
 

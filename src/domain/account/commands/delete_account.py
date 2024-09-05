@@ -24,11 +24,7 @@ async def delete_account(
 ):
     account_repo.session = session_maker()
 
-    account = await account_repo.get_by_number(command.account_number)
-
-    if command.user_id != account.owner_id:
-        print('User tries to delete account, which does no owned by user.')
-        raise EntityNotFoundException(command.account_number)
+    account = await account_repo.get_by_number(command.account_number, command.user_id)
 
     if account.balance != Decimal(0.00):
         raise ThisActionIsForbidden(f'Balance is {account.balance}. Transfer all account balance to other accounts.')

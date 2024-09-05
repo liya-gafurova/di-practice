@@ -19,6 +19,12 @@ class AccountModel(Base):
     number: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
 
 
+class AccountAccessModel(Base):
+    __tablename__ = 'account_access'
+    account_id: Mapped[str] = mapped_column(ForeignKey('account.id'), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=False)
+
+
 class AccountBalanceModel(Base):
     __tablename__ = 'account_balance'
 
@@ -30,7 +36,7 @@ class AccountBalanceModel(Base):
 class CategoryModel(Base):
     __tablename__ = 'category'
     __table_args__ = (
-        UniqueConstraint('name', 'user_id', 'deleted_at',  name='unique_category_for_user'),
+        UniqueConstraint('name', 'user_id', 'deleted_at', name='unique_category_for_user'),
     )
     name: Mapped[str] = mapped_column(String(128), index=True, unique=False, nullable=False)
     user_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True)
