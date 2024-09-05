@@ -9,7 +9,7 @@ from domain.transaction.entities import Transaction, TransactionType
 from domain.transaction.repositories import TransactionRepository
 from shared.data_mapper import DataMapper
 from shared.repositories import SqlAlchemyRepository
-from storage.models import TransactionModel, AccountModel
+from storage.models import TransactionModel, AccountModel, AccountAccessModel
 
 
 class TransactionDataMapper(DataMapper):
@@ -49,9 +49,14 @@ class TransactionSqlAlchemyRepository(TransactionRepository, SqlAlchemyRepositor
     async def get_user_transactions(self, user_id: uuid.UUID) -> list[Transaction]:
         user_accounts__subquery = select(
             AccountModel.number
+        ).join(
+            AccountAccessModel,
+            and_(
+                AccountModel.id == AccountAccessModel.account_id,
+                AccountAccessModel.user_id == user_id
+            )
         ).where(
             and_(
-                AccountModel.owner_id == user_id,
                 AccountModel.deleted_at.is_(None)
             )
         )

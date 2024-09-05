@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from domain.account.commands import add_transaction_for_user, AddTransactionDTO, update_account, UpdateAccountDTO, \
-    create_account, CreateAccountDTO, delete_account, DeleteAccountDTO
+    create_account, CreateAccountDTO, delete_account, DeleteAccountDTO, share_account_access, ShareAccountAccessDTO
 from domain.account.queries import GetAccountByIdDTO, get_account_by_id, GetAllUserAccountsDTO, get_all_user_accounts
 from domain.transaction.entities import TransactionType
 from domain.transaction.queries import get_account_transactions, GetAccountTransactionsDTO, GetUserTransactionsDTO, \
@@ -238,3 +238,48 @@ async def test__account_delete(
 
     with pytest.raises(EntityNotFoundException):
         await get_account_by_id(GetAccountByIdDTO(user.id, account.id))
+
+
+################
+# Share account
+# check new account user sees transactions added previously
+################
+
+@pytest.mark.asyncio
+async def test__account_share(
+        clean_db,
+        container,
+        user_accounts_transactions,
+        another_user_transactions
+):
+    user, accounts, txs = user_accounts_transactions
+    _user, _accounts, _txs = another_user_transactions
+    shared_account = accounts[0]
+
+    assert shared_account not in _accounts
+
+    shared_account = await share_account_access(ShareAccountAccessDTO(
+        account_number=shared_account.number,
+        account_owner_id=user.id,
+        share_access_with_id=_user.id
+    ))
+
+    db_accounts_after = await get_all_user_accounts(GetAllUserAccountsDTO(_user.id))
+
+    assert shared_account in db_accounts_after
+
+    amount = Decimal(shared_account.balance * Decimal(0.20)).quantize(Decimal('0.01'))
+    nex_tx = await add_transaction_for_user(
+        command=AddTransactionDTO(
+            user_id=user.id,
+            credit_account=None,
+            debit_account=shared_account.number,
+            amount=amount,
+        )
+    )
+
+    user_txs = await get_user_transactions(GetUserTransactionsDTO(user.id))
+    _user_txs = await get_user_transactions(GetUserTransactionsDTO(_user.id))
+
+    assert user_txs[0].id == _user_txs[0].id
+
