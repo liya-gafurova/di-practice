@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import Container
 from domain.account.entities import AccountNumber
@@ -12,10 +13,11 @@ from domain.category.entities import Category
 from domain.category.repositories import CategoryRepository
 from domain.transaction.entities import Transaction, TransactionType
 from shared.exceptions import EntityNotFoundException, IncorrectData
+from shared.interfaces import Command
 
 
 @dataclass
-class CreateTransactionDTO:
+class CreateTransactionDTO(Command):
     user_id: uuid.UUID
     credit_account: AccountNumber | None
     debit_account: AccountNumber | None
@@ -28,12 +30,11 @@ class CreateTransactionDTO:
 @inject
 async def create_transaction(
         command: CreateTransactionDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         tx_repo=Provide[Container.tx_repo],
         account_repo:AccountRepository=Provide[Container.account_repo],
         category_repo: CategoryRepository=Provide[Container.category_repo]
 ):
-    session = session_maker()
     account_repo.session = session
     tx_repo.session = session
     category_repo.session = session

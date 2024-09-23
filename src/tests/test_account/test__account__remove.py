@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from domain.account.commands import delete_account, DeleteAccountDTO, add_transaction_for_user, AddTransactionDTO
+from domain.account.commands import DeleteAccountDTO, AddTransactionDTO
 from domain.account.entities import Account
 from domain.account.queries import get_account_by_id, GetAccountByIdDTO
 from domain.user.entities import User
@@ -17,10 +17,11 @@ async def test__account_delete__another_user_account(
         another_user_account,
         user
 ):
+    app = container.app()
     another_user, another_account = another_user_account
 
     with pytest.raises(EntityNotFoundException):
-        await delete_account(DeleteAccountDTO(user.id, another_account.number))
+        await app.execute(DeleteAccountDTO(user.id, another_account.number), container.db_session())
 
 
 @pytest.mark.asyncio
@@ -29,8 +30,9 @@ async def test__account_delete__account_not_exists(
         container,
         user
 ):
+    app = container.app()
     with pytest.raises(EntityNotFoundException):
-        await delete_account(DeleteAccountDTO(user.id, 'some number'))
+        await app.execute(DeleteAccountDTO(user.id, 'some number'), container.db_session())
 
 
 @pytest.mark.asyncio
@@ -42,23 +44,25 @@ async def test__account_delete__with_txs__not_zero_balance(clean_db, container, 
     :param user_accounts_transactions:
     :return:
     """
+    app = container.app()
     user, accounts, txs = user_accounts_transactions
-    account = await get_account_by_id(GetAccountByIdDTO(user.id, accounts[0].id))
+    account = await app.execute(GetAccountByIdDTO(user.id, accounts[0].id), container.db_session())
     # check that account balance is not 0 to perform test
     assert account.balance != Decimal(0.0)
 
     # perform test
     with pytest.raises(ThisActionIsForbidden):
-        await delete_account(DeleteAccountDTO(user.id, accounts[0].number))
+        await app.execute(DeleteAccountDTO(user.id, accounts[0].number), container.db_session())
 
 
-async def prepare_account_for_removing(user: User, account_to_be_deleted: Account, another_user_account: Account):
-    await add_transaction_for_user(AddTransactionDTO(
+async def prepare_account_for_removing(container, user: User, account_to_be_deleted: Account, another_user_account: Account):
+    app = container.app()
+    await app.execute(AddTransactionDTO(
         user_id=user.id,
         credit_account=account_to_be_deleted.number,
         debit_account=another_user_account.number,
         amount=account_to_be_deleted.balance
-    ))
+    ),container.db_session())
 
 
 @pytest.mark.asyncio
@@ -70,17 +74,19 @@ async def test__account_delete__with_txs__zero_balance(clean_db, container, user
     :param user_accounts_transactions:
     :return:
     """
+    app = container.app()
     user, accounts, txs = user_accounts_transactions
     another_account = accounts[1]
 
     # get actual balance value
-    account_to_be_deleted = await get_account_by_id(GetAccountByIdDTO(user.id, accounts[0].id))
+    account_to_be_deleted = await app.execute(GetAccountByIdDTO(user.id, accounts[0].id), container.db_session())
 
     # transfer account balance to another user account
     await prepare_account_for_removing(
+        container,
         user=user,
         account_to_be_deleted=account_to_be_deleted,
         another_user_account=another_account
     )
 
-    await delete_account(DeleteAccountDTO(user.id, account_to_be_deleted.number))
+    await app.execute(DeleteAccountDTO(user.id, account_to_be_deleted.number),container.db_session())

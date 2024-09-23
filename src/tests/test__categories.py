@@ -1,18 +1,19 @@
 import pytest
 
-from domain.category.commands import update_category, UpdateCategoryDTO, delete_category, DeleteCategoryByIdDTO
-from domain.category.commands.create_category import create_general_category, CreateGeneralCategoryDTO, \
-    create_custom_category, CreateCustomCategoryDTO
-from domain.category.queries import GetCategoryByIdDTO, get_category_by_id, get_categories, GetCategoriesDTO
+from domain.category.commands import UpdateCategoryDTO, DeleteCategoryByIdDTO
+from domain.category.commands.create_category import CreateGeneralCategoryDTO, CreateCustomCategoryDTO
+from domain.category.queries import GetCategoryByIdDTO, GetCategoriesDTO
 from shared.exceptions import EntityNotFoundException, ThisActionIsForbidden
 from tests.conftest import existing_general_category, existing_custom_category, existing_custom_category__another_user
 
 
 @pytest.mark.asyncio
 async def test__create_general_category(clean_db, container):
+    app  = container.app()
     category = 'food'
-    new_category = await create_general_category(
-        CreateGeneralCategoryDTO(name=category)
+    new_category = await app.execute(
+        CreateGeneralCategoryDTO(name=category),
+        container.db_session()
     )
 
     assert new_category.name == category
@@ -22,9 +23,11 @@ async def test__create_general_category(clean_db, container):
 
 @pytest.mark.asyncio
 async def test__create_custom_category(clean_db, container, user):
+    app = container.app()
     category = 'sport'
-    new_category = await create_custom_category(
-        CreateCustomCategoryDTO(name=category, user_id=user.id)
+    new_category = await app.execute(
+        CreateCustomCategoryDTO(name=category, user_id=user.id),
+        container.db_session()
     )
 
     assert new_category.name == category
@@ -39,10 +42,9 @@ async def test__create_custom_category__another_user_with_same_category(
         user,
         existing_custom_category__another_user
 ):
+    app = container.app()
     category_name = existing_custom_category__another_user.name
-    new_category = await create_custom_category(
-        CreateCustomCategoryDTO(name=category_name, user_id=user.id)
-    )
+    new_category = await app.execute(CreateCustomCategoryDTO(name=category_name, user_id=user.id), container.db_session())
 
     assert new_category.name == existing_custom_category__another_user.name
     assert new_category.user_id == user.id
@@ -51,28 +53,32 @@ async def test__create_custom_category__another_user_with_same_category(
 
 @pytest.mark.asyncio
 async def test__update_general_category(clean_db, container, user, existing_general_category):
+    app = container.app()
     new_category_name = 'FOOD'
 
     with pytest.raises(ThisActionIsForbidden):
-        updated = await update_category(
+        updated = await app.execute(
             UpdateCategoryDTO(
                 id=existing_general_category.id,
                 user_id=user,
                 name=new_category_name
-            )
+            ),
+            container.db_session()
         )
 
 
 @pytest.mark.asyncio
 async def test__update_custom_category(clean_db, container, user, existing_custom_category):
+    app = container.app()
     new_name = 'JEANS'
 
-    updated = await update_category(
+    updated = await app.execute(
         UpdateCategoryDTO(
             id=existing_custom_category.id,
             user_id=user.id,
             name=new_name
-        )
+        ),
+        container.db_session()
     )
 
     assert updated.id == existing_custom_category.id
@@ -82,15 +88,16 @@ async def test__update_custom_category(clean_db, container, user, existing_custo
 
 @pytest.mark.asyncio
 async def test__update_custom_category__another_user(clean_db, container, another_user, existing_custom_category):
+    app = container.app()
     new_name = 'JEANS'
 
     with pytest.raises(EntityNotFoundException):
-        updated = await update_category(
-            UpdateCategoryDTO(
+        updated = await app.execute(UpdateCategoryDTO(
                 id=existing_custom_category.id,
                 user_id=another_user.id,
                 name=new_name
-            )
+            ),
+            container.db_session()
         )
 
 
@@ -101,19 +108,22 @@ async def test__delete_custom_category(
         user,
         existing_custom_category
 ):
-    result = await delete_category(
+    app = container.app()
+    result = await app.execute(
         DeleteCategoryByIdDTO(
             id=existing_custom_category.id,
             user_id=user.id
-        )
+        ),
+        container.db_session()
     )
 
     with pytest.raises(EntityNotFoundException):
-        deleted = await get_category_by_id(
+        deleted = await app.execute(
             GetCategoryByIdDTO(
                 id=existing_custom_category.id,
                 user_id=user.id
-            )
+            ),
+            container.db_session()
         )
 
 
@@ -124,19 +134,22 @@ async def test__delete_general_category(
         user,
         existing_general_category
 ):
+    app = container.app()
     with pytest.raises(ThisActionIsForbidden):
-        result = await delete_category(
+        result = await app.execute(
             DeleteCategoryByIdDTO(
                 id=existing_general_category.id,
                 user_id=user.id
-            )
+            ),
+            container.db_session()
         )
 
-    not_deleted = await get_category_by_id(
+    not_deleted = await app.execute(
         GetCategoryByIdDTO(
             id=existing_general_category.id,
             user_id=user.id
-        )
+        ),
+        container.db_session()
     )
 
     assert not_deleted == existing_general_category
@@ -149,18 +162,21 @@ async def test__add_category_that_was_deleted(
         user,
         existing_custom_category
 ):
-    await delete_category(
+    app = container.app()
+    await app.execute(
         DeleteCategoryByIdDTO(
             id=existing_custom_category.id,
             user_id=user.id
-        )
+        ),
+        container.db_session()
     )
 
-    new_category = await create_custom_category(
+    new_category = await app.execute(
         CreateCustomCategoryDTO(
             user_id=user.id,
             name=existing_custom_category.name
-        )
+        ),
+        container.db_session()
     )
 
 
@@ -172,11 +188,13 @@ async def test__get_custom_by_id_category(
         existing_custom_category,
         existing_general_category
 ):
-    category = await get_category_by_id(
+    app = container.app()
+    category = await app.execute(
         GetCategoryByIdDTO(
             id=existing_custom_category.id,
             user_id=user.id
-        )
+        ),
+        container.db_session()
     )
 
     assert category.id == existing_custom_category.id
@@ -192,11 +210,13 @@ async def test__get_general_by_id_category(
         existing_custom_category,
         existing_general_category
 ):
-    category = await get_category_by_id(
+    app = container.app()
+    category = await app.execute(
         GetCategoryByIdDTO(
             id=existing_general_category.id,
             user_id=user.id
-        )
+        ),
+        container.db_session()
     )
 
     assert category.id == existing_general_category.id
@@ -213,11 +233,8 @@ async def test__list_all_user_categories(
         existing_general_category,
         existing_custom_category__another_user
 ):
-    categories = await get_categories(
-        GetCategoriesDTO(
-            user_id=user.id
-        )
-    )
+    app = container.app()
+    categories = await app.execute(GetCategoriesDTO(user_id=user.id), container.db_session())
 
     assert len(categories) == 2
     assert categories[0].id == existing_custom_category.id
@@ -237,11 +254,13 @@ async def test__list_custom_categories(
         existing_general_category,
         existing_custom_category__another_user
 ):
-    categories = await get_categories(
+    app = container.app()
+    categories = await app.execute(
         GetCategoriesDTO(
             user_id=user.id,
             with_general=False
-        )
+        ),
+        container.db_session()
     )
 
     assert len(categories) == 1

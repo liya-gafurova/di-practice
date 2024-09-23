@@ -73,17 +73,12 @@ class SqlAlchemyRepository(Repository):
         self._session = db_session
 
     async def add(self, entity):
+
         instance = self.map_entity_to_model(entity)
-        try:
-            async with self._session:
-                self._session.add(instance)
-                await self._session.commit()
-        except IntegrityError as err:
-            raise EntityAlreadyCreatedException()
+        self._session.add(instance)
 
     async def get_by_id(self, entity_id):
-        async with self._session:
-            instance = await self._session.get(self.get_model_class(), entity_id)
+        instance = await self._session.get(self.get_model_class(), entity_id)
 
         if instance is None:
             raise EntityNotFoundException(entity_id=entity_id)
@@ -91,25 +86,22 @@ class SqlAlchemyRepository(Repository):
 
     async def get_all(self):
         stmt = select(self.get_model_class()).order_by(self.get_model_class().created_at.desc())
-        async with self._session:
-            instances = (await self._session.scalars(stmt)).all()
+        instances = (await self._session.scalars(stmt)).all()
 
         return [self._get_entity(instance) for instance in instances]
 
     async def update(self, entity):
         instance = self.map_entity_to_model(entity)
-        async with self._session:
-            merged = await self._session.merge(instance)
-            self._session.add(merged)
-            await self._session.commit()
+
+        merged = await self._session.merge(instance)
+        self._session.add(merged)
 
     async def remove(self, entity):
-        async with self._session:
-            instance = await self._session.get(self.get_model_class(), entity.id)
-            if instance is None:
-                raise EntityNotFoundException(entity_id=entity.id)
-            instance.delete()
-            await self._session.commit()
+        instance = await self._session.get(self.get_model_class(), entity.id)
+        if instance is None:
+            raise EntityNotFoundException(entity_id=entity.id)
+        instance.delete()
+
 
     def map_entity_to_model(self, entity: Entity):
         assert self.mapper_class, (

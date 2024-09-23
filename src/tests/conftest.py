@@ -5,18 +5,20 @@ import pytest
 import pytest_asyncio
 from dependency_injector import providers
 from dependency_injector.wiring import inject, Provide
+from requests import session
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from core.dependencies import Container
+from core.app import Application
 from core.settings import settings
-from domain.account.commands import create_account, CreateAccountDTO, AddTransactionDTO, add_transaction_for_user
+from domain.account.commands import CreateAccountDTO, AddTransactionDTO
 from domain.account.entities import Account
-from domain.account.queries import get_account_by_id, GetAccountByIdDTO
-from domain.category.commands import create_general_category, CreateGeneralCategoryDTO, create_custom_category, \
-    CreateCustomCategoryDTO
-from domain.transaction.entities import Transaction, TransactionType
+from domain.account.queries import GetAccountByIdDTO
+from domain.category.commands import CreateGeneralCategoryDTO, CreateCustomCategoryDTO
+from domain.user.commands import CreateUserDTO
 from domain.user.entities import User
+from domain.user.queries import GetUserDTO
 from shared.database import Base
 
 
@@ -26,7 +28,7 @@ def create_engine_for_tests(db_url):
     engine = create_async_engine(
         db_url.unicode_string(),
         poolclass=NullPool,
-        echo=True
+        # echo=True
     )
     from shared.database import Base
     Base.metadata.bind = engine
@@ -66,12 +68,15 @@ async def clean_db(container):
 
 @pytest_asyncio.fixture
 @inject
-async def user(clean_db, container, db_session=Provide[Container.db_session], repo=Provide[Container.user_repo]):
-    repo.session = db_session()
-
-    user = User(id=User.next_id(), name='user name', email='example@test.com')
-
-    await repo.add(user)
+async def user(
+        clean_db,
+        container,
+        app: Application=Provide[Container.app],
+):
+    user  = await app.execute(
+        CreateUserDTO(name='user name', email='example@test.com'),
+        container.db_session()
+    )
 
     return user
 
@@ -80,13 +85,14 @@ async def user(clean_db, container, db_session=Provide[Container.db_session], re
 async def user_account(clean_db, container, user):
     # if balance > 0, account is created with balance = 0.0,
     # then correction tx is created to fix "income"
-
+    app = container.app()
     balance = Decimal(random.uniform(10, 100))
-    account = await create_account(CreateAccountDTO(
+    account = await app.execute(CreateAccountDTO(
         user.id,
         'fixture_account',
         balance=balance
-    ))
+    ),
+        container.db_session())
 
     return user, account
 
@@ -94,9 +100,10 @@ async def user_account(clean_db, container, user):
 @pytest_asyncio.fixture
 async def user_accounts(clean_db, container, user):
     accounts = []
+    app = container.app()
     for i in range(5):
         balance = random.uniform(10, 100)
-        account = await create_account(CreateAccountDTO(user.id, f'fixture_account_{i}', balance))
+        account = await app.execute(CreateAccountDTO(user.id, f'fixture_account_{i}', balance), container.db_session())
         accounts.append(account)
 
     return user, accounts
@@ -104,49 +111,55 @@ async def user_accounts(clean_db, container, user):
 
 @pytest_asyncio.fixture
 async def another_user(clean_db, container):
-    session_maker = container.db_session()
-    user_repo = container.user_repo()
-    user_repo.session = session_maker()
+    app = container.app()
 
-    user = User(id=User.next_id(), name='Another user name', email='example@test.com')
-
-    await user_repo.add(user)
+    user = await app.execute(
+        CreateUserDTO(name='Another user name', email='example@test.com'),
+        container.db_session()
+    )
 
     return user
 
 
 @pytest_asyncio.fixture
 async def another_user_account(clean_db, container, another_user):
+    app = container.app()
     balance = Decimal(random.uniform(10, 100))
-    account = await create_account(CreateAccountDTO(
-        another_user.id,
-        'fixture_account',
-        balance=balance
-    ))
+    account = await app.execute(
+        CreateAccountDTO(
+            another_user.id,
+            'fixture_account',
+            balance=balance
+        ),
+        container.db_session()
+    )
 
     return another_user, account
 
 
 @pytest_asyncio.fixture
 async def another_user_accounts(clean_db, container, another_user):
+    app = container.app()
     accounts = []
     for i in range(5):
         balance = Decimal(random.uniform(10, 100))
-        account = await create_account(CreateAccountDTO(
+        account = await app.execute(CreateAccountDTO(
             another_user.id,
             f'fixture_account_{i}',
             balance=balance
-        ))
+        ), container.db_session())
         accounts.append(account)
 
     return another_user, accounts
 
 
 async def add_txs_to_user_accounts(
+        container,
         user: User,
         accounts: list[Account],
-        txs_count: int = 10
+        txs_count: int = 10,
 ):
+    app = container.app()
     transactions = []
     for i in range(txs_count):
         # get two random accounts (credit, debit). One of accounts can be none
@@ -161,16 +174,17 @@ async def add_txs_to_user_accounts(
 
         amount = Decimal(random.uniform(10, 100))
         if credit_and_debit_accounts[0]:
-            credit_acc = await get_account_by_id(GetAccountByIdDTO(user.id, credit_and_debit_accounts[0].id))
+            credit_acc = await app.execute(GetAccountByIdDTO(user.id, credit_and_debit_accounts[0].id), container.db_session())
             amount = credit_acc.balance * Decimal(0.5)
 
-        tx = await add_transaction_for_user(
+        tx = await app.execute(
             AddTransactionDTO(
                 user_id=user.id,
                 credit_account=credit_and_debit_accounts[0].number if credit_and_debit_accounts[0] else None,
                 debit_account=credit_and_debit_accounts[1].number if credit_and_debit_accounts[1] else None,
                 amount=amount
-            )
+            ),
+            container.db_session()
         )
         transactions.append(tx)
 
@@ -182,9 +196,11 @@ async def user_accounts_transactions(
         clean_db, container,
         user_accounts
 ):
+    app = container.app()
+    session = container.db_session()
     user, accounts = user_accounts
 
-    transactions = await add_txs_to_user_accounts(user, accounts, 10)
+    transactions = await add_txs_to_user_accounts(container, user, accounts, 10)
 
     return user, accounts, transactions
 
@@ -195,32 +211,41 @@ async def another_user_transactions(
         container,
         another_user_accounts
 ):
+    app = container.app()
+    session = container.db_session()
     another_user, accounts = another_user_accounts
 
-    transactions = await add_txs_to_user_accounts(another_user, accounts, 5)
+    transactions = await add_txs_to_user_accounts(container, another_user, accounts, 5)
 
     return another_user, accounts, transactions
 
 
 @pytest_asyncio.fixture
 async def existing_general_category(clean_db, container):
-    new_category = await create_general_category(
-        CreateGeneralCategoryDTO(name='medicine')
+    app = container.app()
+    new_category = await app.execute(
+        CreateGeneralCategoryDTO(name='medicine'),
+        container.db_session()
     )
     return new_category
 
 
 @pytest_asyncio.fixture
 async def existing_custom_category(clean_db, container, user):
-    new_category = await create_custom_category(
-        CreateCustomCategoryDTO(name='jeans', user_id=user.id)
+
+    app = container.app()
+    new_category = await app.execute(
+        CreateCustomCategoryDTO(name='jeans', user_id=user.id),
+        container.db_session()
     )
     return new_category
 
 
 @pytest_asyncio.fixture
 async def existing_custom_category__another_user(clean_db, container, another_user):
-    new_category = await create_custom_category(
-        CreateCustomCategoryDTO(name='shirts', user_id=another_user.id)
+    app = container.app()
+    new_category = await app.execute(
+        CreateCustomCategoryDTO(name='shirts', user_id=another_user.id),
+        container.db_session()
     )
     return new_category

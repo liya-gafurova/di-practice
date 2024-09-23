@@ -2,24 +2,26 @@ import uuid
 from dataclasses import dataclass
 
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import Container
 from domain.user.repositories import UserRepository
+from shared.interfaces import Query
 
 
 @dataclass
-class GetUserDTO:
+class GetUserDTO(Query):
     id: uuid.UUID
 
 
 @inject
 async def get_user_by_id(
         query: GetUserDTO,
-        db_session=Provide[Container.db_session],
+        session:AsyncSession,
         repo=Provide[Container.user_repo]
 ):
     # check user_dto
-    repo.session = db_session()
+    repo.session = session
 
     # crate user
     user = await repo.get_by_id(query.id)
@@ -29,18 +31,18 @@ async def get_user_by_id(
 
 
 @dataclass
-class GetUserByNameDTO:
+class GetUserByNameDTO(Query):
     name: str
 
 
 @inject
 async def get_user_by_name(
         query: GetUserByNameDTO,
-        db_session=Provide[Container.db_session],
+        session:AsyncSession,
         repo=Provide[Container.user_repo]
 ):
     # check user_dto
-    repo.session = db_session()
+    repo.session = session
 
     # crate user
     user = await repo.get_by_name(query.name)
@@ -49,17 +51,17 @@ async def get_user_by_name(
 
 
 @dataclass
-class GetUsersDTO:
+class GetUsersDTO(Query):
     pass
 
 
 @inject
 async def get_all_users(
         query: GetUsersDTO,
+        session: AsyncSession,
         repo: UserRepository = Provide[Container.user_repo],
-        session_maker=Provide[Container.db_session]
 ):
-    repo.session = session_maker()
+    repo.session = session
     users = await repo.get_all()
 
     return users

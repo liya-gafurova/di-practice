@@ -2,6 +2,7 @@ from dependency_injector import providers, containers
 from pydantic_core import MultiHostUrl
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
+from core.app import Application
 from storage.account import AccountSqlalchemyRepository
 from storage.category import CategorySqlAlchemyRepository
 from storage.transaction import TransactionSqlAlchemyRepository
@@ -30,6 +31,7 @@ def create_engine_once(db_url: MultiHostUrl):
 
 
 class Container(containers.DeclarativeContainer):
+    # Singletons
     config = providers.Configuration()
     engine = providers.Singleton(create_engine_once, db_url=config.SQLALCHEMY_DATABASE_URI)
 
@@ -37,7 +39,10 @@ class Container(containers.DeclarativeContainer):
         async_sessionmaker,
         bind=engine
     )
-    db_session = providers.Factory(
+    app = providers.Singleton(Application)
+
+    # Factories
+    db_session = providers.Callable(
         async_session_factory
     )
 
@@ -45,4 +50,3 @@ class Container(containers.DeclarativeContainer):
     account_repo = providers.Factory(AccountSqlalchemyRepository)
     tx_repo = providers.Factory(TransactionSqlAlchemyRepository)
     category_repo = providers.Factory(CategorySqlAlchemyRepository)
-

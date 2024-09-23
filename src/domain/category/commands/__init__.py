@@ -8,6 +8,9 @@ from .create_category import (
 from .update_category import (
     update_category,
     UpdateCategoryDTO,
+
+    test_handler,
+    TestCommandDTO
 )
 
 from .delete_category import (

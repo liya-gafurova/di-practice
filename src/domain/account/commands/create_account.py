@@ -3,19 +3,22 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.app import Application
 from core.dependencies import Container
-from domain.account.commands.add_transaction import add_correction_transaction, AddCorrectionTransactionDTO
+from domain.account.commands import AddCorrectionTransactionDTO
 from domain.account.commands.shared import INCORRECT_BALANCE__MSG
 
 from domain.account.entities import Account
 from domain.account.repositories import AccountRepository
 from domain.user.repositories import UserRepository
 from shared.exceptions import IncorrectData
+from shared.interfaces import Command
 
 
 @dataclass
-class CreateAccountDTO:
+class CreateAccountDTO(Command):
     user_id: uuid.UUID
     name: None | str
     balance: Decimal | float = Decimal(0.00)
@@ -24,11 +27,12 @@ class CreateAccountDTO:
 @inject
 async def create_account(
         command: CreateAccountDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
+        app: Application=Provide[Container.app],
+        session_maker=Provide[Container.async_session_factory],
         account_repo: AccountRepository = Provide[Container.account_repo],
         user_repo: UserRepository = Provide[Container.user_repo]
 ):
-    session = session_maker()
     account_repo.session = session
     user_repo.session = session
 
@@ -54,13 +58,14 @@ async def create_account(
     await account_repo.add(new_account)
 
     if command.balance > init_balance:
-        await add_correction_transaction(
-            command=AddCorrectionTransactionDTO(
+        await app.execute(
+            AddCorrectionTransactionDTO(
                 user_id=command.user_id,
                 account_number=new_account.number,
                 new_balance=command.balance,
                 current_balance=init_balance
-            )
+            ),
+            session_maker
         )
         new_account.balance = command.balance
 
