@@ -31,6 +31,9 @@ def create_engine_once(db_url: MultiHostUrl):
 
 
 class Container(containers.DeclarativeContainer):
+    __self__ = providers.Self()
+
+
     # Singletons
     config = providers.Configuration()
     engine = providers.Singleton(create_engine_once, db_url=config.SQLALCHEMY_DATABASE_URI)

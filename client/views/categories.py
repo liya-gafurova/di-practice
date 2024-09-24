@@ -3,14 +3,14 @@ import uuid
 
 import streamlit as st
 from dependency_injector import providers
+from dependency_injector.wiring import inject, Provide
 from pydantic import BaseModel
 
 from core.dependencies import Container
 from core.settings import settings
-from domain.category.commands import create_custom_category, CreateCustomCategoryDTO, update_category, \
-    UpdateCategoryDTO, delete_category, DeleteCategoryByIdDTO
-from domain.category.queries import get_categories, GetCategoriesDTO, get_category_by_name, GetCategoryByNameDTO
-from domain.user.queries import get_user_by_id, GetUserDTO
+from domain.category.commands import CreateCustomCategoryDTO, UpdateCategoryDTO, DeleteCategoryByIdDTO
+from domain.category.queries import GetCategoriesDTO, GetCategoryByNameDTO
+from domain.user.queries import GetUserDTO
 from tests.conftest import create_engine_for_tests
 
 users = {
@@ -36,67 +36,78 @@ container.wire(modules=[
 class CategoryModel(BaseModel):
     name: str
 
-
-async def get_categories_data(user_id: uuid.UUID):
-    categories_date = await get_categories(
+@inject
+async def get_categories_data(user_id: uuid.UUID, container=Provide[Container]):
+    app = container.app()
+    categories_date = await app.execute(
         GetCategoriesDTO(
             user_id=user_id
-        )
+        ),
+        container.db_session()
     )
 
     return [CategoryModel(name=c.name).model_dump() for c in categories_date]
 
-
-async def add_category__form(st, user):
+@inject
+async def add_category__form(st, user, container=Provide[Container]):
+    app = container.app()
     with st.form('Add User category'):
         st.write('Add')
         name = st.text_input('Categoty Name', value=None)
         submitted = st.form_submit_button('Add')
         if submitted:
-            new_category = await create_custom_category(
-                CreateCustomCategoryDTO(name=name, user_id=user.id)
+            new_category = await app.execute(
+                CreateCustomCategoryDTO(name=name, user_id=user.id),
+                container.db_session()
             )
 
-
-async def edit_category__form(st, user):
+@inject
+async def edit_category__form(st, user, container=Provide[Container]):
+    app = container.app()
     with st.form('Edit User category'):
         st.write('Edit')
         old_name = st.text_input('Old Name', value=None)
         new_name = st.text_input('New Name', value=None)
         submitted = st.form_submit_button('Edit')
         if submitted:
-            to_be_edited = await get_category_by_name(
-                GetCategoryByNameDTO(name=old_name, user_id=user.id)
+            to_be_edited = await app.execute(
+                GetCategoryByNameDTO(name=old_name, user_id=user.id),
+                container.db_session()
             )
 
-            edited = await update_category(
+            edited = await app.execute(
                 UpdateCategoryDTO(
                     id=to_be_edited.id,
                     user_id=user.id,
                     name=new_name
-                )
+                ),
+                container.db_session()
             )
 
-
-async def delete_category__form(st, user):
+@inject
+async def delete_category__form(st, user, container=Provide[Container]):
+    app = container.app()
     with st.form('Delete User category'):
         st.write('Delete')
         name = st.text_input('Name', value=None)
         submitted = st.form_submit_button('Delete')
         if submitted:
-            to_be_deleted = await get_category_by_name(
-                GetCategoryByNameDTO(name=name, user_id=user.id)
+            to_be_deleted = await app.execute(
+                GetCategoryByNameDTO(name=name, user_id=user.id),
+                container.db_session()
             )
-            result = await delete_category(
+            result = await app.execute(
                 DeleteCategoryByIdDTO(
                     id=to_be_deleted.id,
                     user_id=user.id
-                )
+                ),
+                container.db_session()
             )
 
-
-async def categories_page():
-    user = await get_user_by_id(GetUserDTO(id=uuid.UUID(users['test_user'])))
+@inject
+async def categories_page(container=Provide[Container]):
+    app = container.app()
+    user = await app.execute(GetUserDTO(id=uuid.UUID(users['test_user'])), container.db_session())
     categories = await get_categories_data(user.id)
 
     st.table(data=categories)

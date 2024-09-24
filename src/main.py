@@ -5,13 +5,14 @@ from dependency_injector.wiring import Provide, inject
 
 from core.dependencies import Container
 from core.settings import settings
-from domain.user.commands import create_user, CreateUserDTO
-from domain.user.queries import GetUserDTO, get_user_by_id
+from domain.user.commands import CreateUserDTO
+from domain.user.queries import GetUserDTO
 
-
-async def check_user():
-    new_user = await create_user(CreateUserDTO(name=f'NAME of user {datetime.utcnow()}'))
-    user = await get_user_by_id(GetUserDTO(id=new_user.id))
+@inject
+async def check_user(container=Provide[Container]):
+    app = container.app()
+    new_user = await app.execute(CreateUserDTO(name=f'NAME of user {datetime.utcnow()}'), container.db_session())
+    user = await app.execute(GetUserDTO(id=new_user.id), container.db_session(()))
     assert user.id == new_user.id
 
 

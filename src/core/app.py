@@ -22,14 +22,17 @@ class Application:
 
     def __init__(self):
         self.modules = [
-            import_module('domain.category.commands'),
-            import_module('domain.category.queries'),
-            import_module('domain.user.commands'),
-            import_module('domain.user.queries'),
-            import_module('domain.transaction.commands'),
-            import_module('domain.transaction.queries'),
-            import_module('domain.account.commands'),
-            import_module('domain.account.queries'),
+            import_module('domain.category.commands', package=None),
+            import_module('domain.category.queries', package=None),
+
+            import_module('domain.user.commands', package=None),
+            import_module('domain.user.queries', package=None),
+
+            import_module('domain.transaction.commands', package=None),
+            import_module('domain.transaction.queries', package=None),
+
+            import_module('domain.account.commands', package=None),
+            import_module('domain.account.queries', package=None),
 
         ]
 
