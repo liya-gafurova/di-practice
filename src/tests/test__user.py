@@ -2,11 +2,8 @@ import pytest
 import pytest_asyncio
 from dependency_injector.wiring import inject, Provide
 
-from core.dependencies import Container
-from domain.user.entities import User
-from domain.user.commands import create_user, CreateUserDTO, update_user, UpdateUserDTO
-from domain.user.queries import get_user_by_id, GetUserDTO, get_all_users, GetUsersDTO, get_user_by_name, \
-    GetUserByNameDTO
+from domain.user.commands import CreateUserDTO, UpdateUserDTO
+from domain.user.queries import GetUserDTO, GetUsersDTO, GetUserByNameDTO
 
 
 @pytest_asyncio.fixture
@@ -15,26 +12,38 @@ async def users(
         clean_db,
         container
 ):
-    repo = container.user_repo()
-    session_maker = container.db_session()
-    repo.session = session_maker()
+    app = container.app()
+    session = container.db_session()
 
-    users = [
-        User(id=User.next_id(), name='user name', email='example@test.com'),
-        User(id=User.next_id(), name='user2 name', email='example2@test.com'),
-        User(id=User.next_id(), name='user3 name', email='example3@test.com'),
-        User(id=User.next_id(), name='user4 name', email='example4@test.com')
+    added_users = []
+
+    users_data = [
+        {'name': 'user name', 'email': 'example@test.com'},
+        {'name': 'user2 name', 'email': 'example2@test.com'},
+        {'name': 'user3 name', 'email': 'example3@test.com'},
+        {'name': 'user4 name', 'email': 'example4@test.com'},
     ]
-    for user in users:
-        await repo.add(user)
 
-    return users
+
+    for user in users_data:
+        added_user = await app.execute(
+            CreateUserDTO(name=user['name'], email=user['email']),
+            container.db_session()
+        )
+        added_users.append(added_user)
+
+    return added_users
 
 
 @pytest.mark.asyncio
 @inject
 async def test__get_user_by_id(clean_db, container, user):
-    user_by_id = await get_user_by_id(GetUserDTO(id=user.id))
+    app = container.app()
+
+    user_by_id = await app.execute(
+        GetUserDTO(id=user.id),
+        container.db_session()
+    )
 
     assert user_by_id.name == user.name
     assert user_by_id.id == user.id
@@ -43,7 +52,8 @@ async def test__get_user_by_id(clean_db, container, user):
 @pytest.mark.asyncio
 @inject
 async def test__get_user_by_name(clean_db, container, user):
-    user_by_name = await get_user_by_name(GetUserByNameDTO(user.name))
+    app = container.app()
+    user_by_name = await app.execute(GetUserByNameDTO(user.name), container.db_session())
 
     assert user_by_name.name == user.name
     assert user_by_name.id == user.id
@@ -52,7 +62,8 @@ async def test__get_user_by_name(clean_db, container, user):
 
 @pytest.mark.asyncio
 async def test__get_users(clean_db, container, users):
-    all_users = await get_all_users(GetUsersDTO())
+    app = container.app()
+    all_users = await app.execute(GetUsersDTO(), container.db_session())
 
     sorted_users = sorted(users, key=lambda user: user.id)
     sorted_all_users = sorted(all_users, key=lambda user: user.id)
@@ -67,10 +78,11 @@ async def test__get_users(clean_db, container, users):
 
 @pytest.mark.asyncio
 async def test__create_user(container, clean_db):
+    app = container.app()
     name = 'Name'
     email = 'example@test.com'
 
-    test_user = await create_user(CreateUserDTO(name=name, email=email))
+    test_user = await app.execute(CreateUserDTO(name=name, email=email), container.db_session())
 
     assert test_user.name == name
     assert test_user.email == email
@@ -79,12 +91,13 @@ async def test__create_user(container, clean_db):
 
 @pytest.mark.asyncio
 async def test__update_user_by_id(clean_db, container, user):
+    app = container.app()
     new_name = 'New Name'
     new_email = 'test@mail.com'
 
-    await update_user(UpdateUserDTO(id=user.id, name=new_name, email=new_email))
+    await app.execute(UpdateUserDTO(id=user.id, name=new_name, email=new_email), container.db_session())
 
-    updated_user = await get_user_by_id(GetUserDTO(id=user.id))
+    updated_user = await app.execute(GetUserDTO(id=user.id), container.db_session())
 
     assert updated_user.name == new_name
     assert updated_user.id == user.id

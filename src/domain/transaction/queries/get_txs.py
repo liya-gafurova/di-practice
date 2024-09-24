@@ -2,26 +2,28 @@ import uuid
 from dataclasses import dataclass
 
 from dependency_injector.wiring import Provide, inject
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import Container
 from domain.account.entities import AccountNumber
 from domain.account.repositories import AccountRepository
 from domain.transaction.repositories import TransactionRepository
 from shared.exceptions import EntityNotFoundException
+from shared.interfaces import Query
 
 
 @dataclass
-class GetUserTransactionsDTO:
+class GetUserTransactionsDTO(Query):
     user_id: uuid.UUID
 
 
 @inject
 async def get_user_transactions(
         query: GetUserTransactionsDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         tx_repo: TransactionRepository = Provide[Container.tx_repo]
 ):
-    tx_repo.session = session_maker()
+    tx_repo.session = session
 
     user_txs = await tx_repo.get_user_transactions(query.user_id)
 
@@ -29,7 +31,7 @@ async def get_user_transactions(
 
 
 @dataclass
-class GetAccountTransactionsDTO:
+class GetAccountTransactionsDTO(Query):
     user_id: uuid.UUID
     account_number: AccountNumber
 
@@ -37,11 +39,10 @@ class GetAccountTransactionsDTO:
 @inject
 async def get_account_transactions(
         query: GetAccountTransactionsDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         tx_repo: TransactionRepository = Provide[Container.tx_repo],
         account_repo:AccountRepository=Provide[Container.account_repo]
 ):
-    session = session_maker()
     tx_repo.session = session
     account_repo.session = session
 

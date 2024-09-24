@@ -2,14 +2,16 @@ import uuid
 from dataclasses import dataclass
 
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import Container
 from domain.category.repositories import CategoryRepository
 from shared.exceptions import EntityNotFoundException
+from shared.interfaces import Query
 
 
 @dataclass
-class GetCategoryByIdDTO:
+class GetCategoryByIdDTO(Query):
     id: uuid.UUID
     user_id: uuid.UUID
 
@@ -17,10 +19,10 @@ class GetCategoryByIdDTO:
 @inject
 async def get_category_by_id(
         query: GetCategoryByIdDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         category_repo: CategoryRepository = Provide[Container.category_repo],
 ):
-    category_repo.session = session_maker()
+    category_repo.session = session
 
     category = await category_repo.get_by_id(query.id)
 
@@ -31,7 +33,7 @@ async def get_category_by_id(
 
 
 @dataclass
-class GetCategoryByNameDTO:
+class GetCategoryByNameDTO(Query):
     name: str
     user_id: uuid.UUID
 
@@ -39,10 +41,10 @@ class GetCategoryByNameDTO:
 @inject
 async def get_category_by_name(
         query: GetCategoryByNameDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         category_repo: CategoryRepository = Provide[Container.category_repo],
 ):
-    category_repo.session = session_maker()
+    category_repo.session = session
 
     category = await category_repo.get_by_name(query.name, query.user_id)
 
@@ -53,7 +55,7 @@ async def get_category_by_name(
 
 
 @dataclass
-class GetCategoriesDTO:
+class GetCategoriesDTO(Query):
     user_id: uuid.UUID
 
     with_general: bool = True
@@ -62,10 +64,10 @@ class GetCategoriesDTO:
 @inject
 async def get_categories(
         query: GetCategoriesDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         category_repo: CategoryRepository = Provide[Container.category_repo],
 ):
-    category_repo.session = session_maker()
+    category_repo.session = session
 
     categories = await category_repo.get_categories(
         user_id=query.user_id,

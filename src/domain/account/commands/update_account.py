@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import Container
 from domain.account.commands.add_transaction import add_correction_transaction, AddCorrectionTransactionDTO
@@ -11,10 +12,11 @@ from domain.account.entities import AccountNumber
 from domain.account.repositories import AccountRepository
 
 from shared.exceptions import EntityNotFoundException, IncorrectData
+from shared.interfaces import Command
 
 
 @dataclass
-class UpdateAccountDTO:
+class UpdateAccountDTO(Command):
     user_id: uuid.UUID
     account_number: AccountNumber
     name: None | str
@@ -24,10 +26,12 @@ class UpdateAccountDTO:
 @inject
 async def update_account(
         command: UpdateAccountDTO,
-        session_maker=Provide[Container.db_session],
-        account_repo:AccountRepository=Provide[Container.account_repo]
+        session: AsyncSession,
+        account_repo:AccountRepository=Provide[Container.account_repo],
+        app=Provide[Container.app],
+        session_maker=Provide[Container.async_session_factory]
 ):
-    account_repo.session = session_maker()
+    account_repo.session = session
 
     account = await account_repo.get_by_number(command.account_number, command.user_id)
 
@@ -39,13 +43,14 @@ async def update_account(
         if command.balance < Decimal(0.00):
             raise IncorrectData(INCORRECT_BALANCE__MSG)
 
-        await add_correction_transaction(
-            command=AddCorrectionTransactionDTO(
+        await app.execute(
+            AddCorrectionTransactionDTO(
                 user_id=command.user_id,
                 account_number=command.account_number,
                 new_balance=command.balance,
                 current_balance=account.balance
-            )
+            ),
+            session_maker
         )
 
     return account

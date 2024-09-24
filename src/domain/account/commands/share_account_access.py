@@ -2,16 +2,18 @@ import uuid
 from dataclasses import dataclass
 
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import Container
 from domain.account.entities import AccountNumber
 from domain.account.repositories import AccountRepository
 from domain.user.repositories import UserRepository
 from shared.exceptions import IncorrectData
+from shared.interfaces import Command
 
 
 @dataclass
-class ShareAccountAccessDTO:
+class ShareAccountAccessDTO(Command):
     account_number: AccountNumber
     account_owner_id: uuid.UUID
     share_access_with_id: uuid.UUID
@@ -20,11 +22,10 @@ class ShareAccountAccessDTO:
 @inject
 async def share_account_access(
         command: ShareAccountAccessDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         account_repo: AccountRepository = Provide[Container.account_repo],
         user_repo: UserRepository = Provide[Container.user_repo]
 ):
-    session = session_maker()
     account_repo.session = session
     user_repo.session = session
     # check account and user are present in db

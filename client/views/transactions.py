@@ -1,18 +1,20 @@
 from unicodedata import category
 
+from dependency_injector.wiring import Provide, inject
 from pydash import find
 
 from client.models import TransactionReadModel
-from domain.account.commands import add_transaction_for_user, AddTransactionDTO
-from domain.account.queries import get_all_user_accounts, GetAllUserAccountsDTO, get_account_by_number, \
-    GetAccountByNumberDTO
-from domain.category.queries import get_category_by_name, GetCategoryByNameDTO
-from domain.transaction.queries import get_user_transactions, GetUserTransactionsDTO
+from core.dependencies import Container
+from domain.account.commands import AddTransactionDTO
+from domain.account.queries import GetAllUserAccountsDTO, GetAccountByNumberDTO
+from domain.category.queries import GetCategoryByNameDTO
+from domain.transaction.queries import GetUserTransactionsDTO
 
-
-async def get_transactions_data(user):
-    txs = await get_user_transactions(GetUserTransactionsDTO(user.id))
-    user_accounts = await get_all_user_accounts(GetAllUserAccountsDTO(user.id))
+@inject
+async def get_transactions_data(user, container=Provide[Container]):
+    app = container.app()
+    txs = await app.execute(GetUserTransactionsDTO(user.id), container.db_session())
+    user_accounts = await app.execute(GetAllUserAccountsDTO(user.id), container.db_session())
 
     display_data = []
     for tx in txs:
@@ -29,8 +31,9 @@ async def get_transactions_data(user):
         )
     return display_data
 
-
-async def add_transaction__form(st, user, accounts, categories):
+@inject
+async def add_transaction__form(st, user, accounts, categories, container=Provide[Container]):
+    app = container.app()
     with st.form('Add Transaction'):
         st.write('Add')
         from_number = st.selectbox('From Account', (a['name'] for a in accounts), index=None,
@@ -45,30 +48,32 @@ async def add_transaction__form(st, user, accounts, categories):
         if submitted:
             category = None
             if category_name:
-                category = await get_category_by_name(
-                    GetCategoryByNameDTO(name=category_name, user_id=user.id)
+                category = await app.execute(
+                    GetCategoryByNameDTO(name=category_name, user_id=user.id),
+                    container.db_session()
                 )
             debit_account, credit_account = None, None
             if to_number:
                 account = find(accounts, lambda acc: acc['name'] == to_number)
                 to_number = account['number']
-                debit_account = await get_account_by_number(GetAccountByNumberDTO(
+                debit_account = await app.execute(GetAccountByNumberDTO(
                     user_id=user.id,
                     account_number=to_number
-                ))
+                ), container.db_session())
             if from_number:
                 account = find(accounts, lambda acc: acc['name'] == from_number)
                 from_number = account['number']
-                credit_account = await get_account_by_number(GetAccountByNumberDTO(
+                credit_account = await app.execute(GetAccountByNumberDTO(
                     user_id=user.id,
                     account_number=from_number
-                ))
-            await add_transaction_for_user(
+                ), container.db_session())
+            await app.execute(
                 AddTransactionDTO(
                     user_id=user.id,
                     credit_account=credit_account.number if credit_account else None,
                     debit_account=debit_account.number if debit_account else None,
                     amount=amount,
                     category_id=category.id if category else None
-                )
+                ),
+                container.db_session()
             )

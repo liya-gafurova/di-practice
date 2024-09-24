@@ -2,24 +2,25 @@ import uuid
 from dataclasses import dataclass
 
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import Container
 from domain.category.entities import Category
 from domain.category.repositories import CategoryRepository
+from shared.interfaces import Command
 
 
 @dataclass
-class CreateGeneralCategoryDTO:
+class CreateGeneralCategoryDTO(Command):
     name: str
 
 
 @inject
 async def create_general_category(
         command: CreateGeneralCategoryDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         category_repo: CategoryRepository = Provide[Container.category_repo],
 ):
-    session = session_maker()
     category_repo.session = session
 
     # todo: check, that user CAN create general categories,
@@ -44,10 +45,9 @@ class CreateCustomCategoryDTO(CreateGeneralCategoryDTO):
 @inject
 async def create_custom_category(
         command: CreateCustomCategoryDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         category_repo: CategoryRepository = Provide[Container.category_repo],
 ):
-    session = session_maker()
     category_repo.session = session
 
     # todo: check user exists

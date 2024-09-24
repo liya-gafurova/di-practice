@@ -3,12 +3,14 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from dependency_injector.wiring import inject, Provide
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.app import Application
 from core.dependencies import Container
 from domain.account.entities import AccountNumber
 from domain.account.repositories import AccountRepository
 
-from domain.transaction.commands import CreateTransactionDTO, create_transaction
+from domain.transaction.commands import CreateTransactionDTO
 from domain.transaction.entities import TransactionType
 
 
@@ -19,28 +21,34 @@ class AddTransactionDTO(CreateTransactionDTO):
 
 @inject
 async def add_transaction_for_user(
-        command: AddTransactionDTO
+        command: AddTransactionDTO,
+        session: AsyncSession,
+        app:Application=Provide[Container.app],
+        session_maker=Provide[Container.async_session_factory]
 ):
     assert isinstance(command, AddTransactionDTO)
 
-    tx = await create_transaction(
+    tx = await app.execute(
         CreateTransactionDTO(
             user_id=command.user_id,
             credit_account=command.credit_account,
             debit_account=command.debit_account,
             amount=command.amount,
             category_id=command.category_id
-        )
+        ),
+        session_maker
     )
 
     if command.credit_account:
-        await update_account_balance(
-            UpdateAccountBalanceDTO(command.user_id, command.credit_account)
+        await app.execute(
+            UpdateAccountBalanceDTO(command.user_id, command.credit_account),
+            session_maker
         )
 
     if command.debit_account:
-        await update_account_balance(
-            UpdateAccountBalanceDTO(command.user_id, command.debit_account)
+        await app.execute(
+            UpdateAccountBalanceDTO(command.user_id, command.debit_account),
+            session_maker
         )
 
     return tx
@@ -56,7 +64,10 @@ class AddCorrectionTransactionDTO:
 
 @inject
 async def add_correction_transaction(
-        command: AddCorrectionTransactionDTO
+        command: AddCorrectionTransactionDTO,
+        session: AsyncSession,
+        app: Application=Provide[Container.app],
+        session_maker=Provide[Container.async_session_factory]
 ):
     assert isinstance(command, AddCorrectionTransactionDTO)
 
@@ -70,18 +81,20 @@ async def add_correction_transaction(
         # balance increases
         debit_account = command.account_number
 
-    tx = await create_transaction(
+    tx = await app.execute(
         CreateTransactionDTO(
             command.user_id,
             credit_account=credit_account,
             debit_account=debit_account,
             amount=abs(balance_delta),
             type=TransactionType.CORRECTION
-        )
+        ),
+        session_maker
     )
 
-    await update_account_balance(
-        UpdateAccountBalanceDTO(command.user_id, command.account_number)
+    await app.execute(
+        UpdateAccountBalanceDTO(command.user_id, command.account_number),
+        session_maker
     )
 
     return tx
@@ -96,10 +109,9 @@ class UpdateAccountBalanceDTO:
 @inject
 async def update_account_balance(
         command: UpdateAccountBalanceDTO,
-        session_maker=Provide[Container.db_session],
+        session: AsyncSession,
         account_repo: AccountRepository = Provide[Container.account_repo]
 ):
-    session = session_maker()
     account_repo.session = session
 
     account = await account_repo.get_by_number(command.account_number, command.user_id)

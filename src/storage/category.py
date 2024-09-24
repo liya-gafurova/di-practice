@@ -45,12 +45,15 @@ class CategorySqlAlchemyRepository(CategoryRepository, SqlAlchemyRepository):
             )
         ).limit(1)
 
-        async with self._session:
-            instance = (await self._session.scalars(stmt)).first()
-            if instance is None:
-                raise EntityNotFoundException(entity_id=name)
+        # async with self._session:
+        #     instance = (await self._session.scalars(stmt)).first()
+        #     if instance is None:
+        #         raise EntityNotFoundException(entity_id=name)
+        #
+        #     return self._get_entity(instance)
 
-            return self._get_entity(instance)
+        instance = (await self._session.scalars(stmt)).first()
+        return self._get_entity(instance)
 
     async def get_categories(self, user_id: uuid.UUID, with_general: bool = True):
 
@@ -66,8 +69,8 @@ class CategorySqlAlchemyRepository(CategoryRepository, SqlAlchemyRepository):
             self.model_class.name
         )
 
-        async with self._session:
-            instances = (await self._session.scalars(stmt)).all()
+        # async with self._session:
+        instances = (await self._session.scalars(stmt)).all()
 
         return [self._get_entity(instance) for instance in instances]
 
